@@ -69,7 +69,7 @@ Only the scene clone receives the two measured fern offsets near the chalkboard.
 
 ## Interaction and lifecycle
 
-- Sound starts only after an explicit toggle.
+- Sound is on by default but, because browsers block audible autoplay, starts only on the visitor's first interaction (pointerup, touchend, keyup, click or keydown); the audio file is not requested before then. Turning it off persists for the session (`sessionStorage['island-sound-off']`).
 - Mobile settings are a header disclosure; keep the footer transparent. Phone map destinations use a named list with 44px targets. Keep antialiasing at capped DPR 1, skip R3F hover raycasts for touch/pressed-pointer moves, and omit floating Html labels on phones. Surface-anchored invitation sprites remain tappable, using bounded BVH visibility checks and the same action as their physical object. The area's reading action and physical-object taps remain available.
 - Palm leaf crowns use owned local pivots with small phase-shifted gusts; never rotate the shared source model or a trunk with a leaf. Daylight adds a soft sun halo and sparse motes; dusk fades in fireflies and ember flicker. Water highlights belong to the water shader. Fish, gulls, hammock/cards, and fire flicker stop or simplify under reduced motion. The user can also choose Still; system reduced motion takes precedence.
 - Pause rendering and animation while the tab is hidden or a reader is open. Use accumulated active time to avoid return jumps.

@@ -65,20 +65,54 @@ class SceneBoundary extends Component<{ children: ReactNode; onRead: () => void;
 function RendererFallback() {
   return <div className="scene-fallback"><p>Explore the text edition of this island.</p><a href="/read">Read the portfolio</a></div>
 }
+const SOUND_OFF_SESSION_KEY = 'island-sound-off'
+// Browsers block audible autoplay, so sound is on by default and starts with the
+// visitor's first interaction. The audio file is only requested at that point.
+// pointerup, touchend and keyup are not consumed by the arrival skip handler.
+const SOUND_START_INPUTS = ['pointerup', 'touchend', 'keyup', 'click', 'keydown'] as const
 function SoundControl() {
-  const [audio, setAudio] = useState<HTMLAudioElement | null>(null)
+  const sound = useRef<HTMLAudioElement | null>(null)
+  const [enabled, setEnabled] = useState(() => !sessionFlag(SOUND_OFF_SESSION_KEY))
+  const wanted = useRef(enabled)
   const [playing, setPlaying] = useState(false)
   const [error, setError] = useState(false)
-  useEffect(() => () => { audio?.pause() }, [audio])
-  const toggle = async () => {
-    const sound = audio || new Audio('/sounds/beach-ambience.mp3')
-    if (!audio) { sound.loop = true; sound.volume = .22; setAudio(sound) }
-    if (playing) { sound.pause(); setPlaying(false); return }
-    try { await sound.play(); setPlaying(true); setError(false) } catch { setError(true) }
+  const load = () => {
+    if (!sound.current) {
+      sound.current = new Audio('/sounds/beach-ambience.mp3')
+      sound.current.loop = true; sound.current.volume = .22
+    }
+    return sound.current
   }
-  return <button className="explore-tool" onClick={toggle} aria-label={playing ? 'Turn island sounds off' : 'Turn island sounds on'} aria-pressed={playing}>
+  useEffect(() => () => { sound.current?.pause() }, [])
+  useEffect(() => { setSessionFlag(SOUND_OFF_SESSION_KEY, !enabled) }, [enabled])
+  useEffect(() => {
+    if (!enabled || playing) return
+    const start = (event: Event) => {
+      // The toggle handles its own clicks; starting here would turn sound on then off.
+      if (event.target instanceof Element && event.target.closest('[data-sound-toggle]')) return
+      load().play().then(() => {
+        if (wanted.current) { setPlaying(true); setError(false) } else sound.current?.pause()
+      }, () => { /* Not a qualifying gesture yet; wait for the next one. */ })
+    }
+    SOUND_START_INPUTS.forEach(type => window.addEventListener(type, start, { capture: true, passive: true }))
+    return () => SOUND_START_INPUTS.forEach(type => window.removeEventListener(type, start, true))
+  }, [enabled, playing])
+  const toggle = async () => {
+    if (enabled) {
+      wanted.current = false
+      sound.current?.pause(); setPlaying(false); setEnabled(false); setError(false)
+      return
+    }
+    wanted.current = true
+    setEnabled(true)
+    try {
+      await load().play()
+      if (wanted.current) { setPlaying(true); setError(false) }
+    } catch { setError(true) }
+  }
+  return <button className="explore-tool" data-sound-toggle onClick={toggle} aria-label={enabled ? 'Turn island sounds off' : 'Turn island sounds on'} aria-pressed={enabled}>
     <span className={`sound-bars ${playing ? 'is-playing' : ''}`} aria-hidden="true"><i /><i /><i /><i /></span>
-    <span>{error ? 'Unavailable' : playing ? 'Sound on' : 'Sound off'}</span>
+    <span>{error ? 'Unavailable' : enabled ? 'Sound on' : 'Sound off'}</span>
   </button>
 }
 

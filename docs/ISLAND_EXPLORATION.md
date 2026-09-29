@@ -140,7 +140,7 @@ Browser acceptance remains necessary:
 2. Interrupt travel with a drag. Test orbit/zoom limits near walls, trunks, and foliage; restore the overview in one action.
 3. Open every artifact, including both posters, the four notebook tabs, and all three career cards. Close by button and Escape; verify the camera pose and DOM focus return.
 4. Use the canvas keyboard controls, native dialog focus containment, and tab arrows/Home/End. Wheel and touch inside readers must not move the island.
-5. Exercise reduced motion/Still, daylight/dusk, opt-in sound, hidden-tab return, and loading/error fallbacks. Check `/read` independently of WebGL.
+5. Exercise reduced motion/Still, daylight/dusk, default-on sound (starts on first interaction), hidden-tab return, and loading/error fallbacks. Check `/read` independently of WebGL.
 6. Inspect resource use on a lower-powered device. Confirm motion pauses when it should; note the RGB atlas limitation separately from navigation failures.
 
 A successful build or geometry check is not visual acceptance. Record the checks actually completed for a change and any remaining limitations.

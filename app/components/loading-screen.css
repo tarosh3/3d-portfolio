@@ -1,0 +1,79 @@
+/* All repeating motion runs on composited HTML layers. The 3D scene can parse,
+   upload textures and compile shaders without driving this artwork's clock. */
+.island-loader{position:fixed;inset:0;z-index:1000;display:flex;flex-direction:column;padding:clamp(24px,4vw,64px);overflow:auto;background:var(--sea-deep);color:var(--chalk);opacity:1;transition:opacity 900ms cubic-bezier(.4,0,.2,1);isolation:isolate;will-change:opacity}
+.arrival-masthead,.arrival-footer{display:flex;align-items:center;justify-content:space-between;gap:24px;flex-shrink:0}
+.arrival-signature{display:flex;gap:14px;align-items:center}
+.arrival-signature svg{width:32px;height:32px;color:var(--accent)}
+.arrival-signature>span{font-family:var(--font-cormorant),Georgia,serif;font-size:25px;line-height:1}
+.arrival-signature>span>span{display:block;margin-top:10px;font-family:var(--font-dm-mono),monospace;font-size:8px;letter-spacing:.19em}
+.arrival-edition,.arrival-footer,.arrival-kicker,.arrival-art figcaption{font-family:var(--font-dm-mono),monospace;font-size:9px;line-height:1.6;letter-spacing:.13em}
+.arrival-edition{color:#c4d2ce}
+.arrival-layout{flex:1;display:grid;grid-template-columns:1fr 1.1fr;align-items:center;gap:3vw;width:min(1240px,100%);margin:22px auto}
+.arrival-copy{padding-bottom:12px}
+.arrival-kicker{display:flex;align-items:center;gap:12px;color:var(--accent);font-size:8px;margin-bottom:28px}
+.arrival-kicker>span{width:22px;height:1px;background:currentColor;flex-shrink:0}
+.arrival-copy h1{font-family:var(--font-cormorant),Georgia,serif;font-size:clamp(52px,6.7vw,100px);font-weight:400;line-height:1.02;letter-spacing:-.045em}
+.arrival-line{display:block;overflow:hidden;padding-bottom:.1em;margin-bottom:-.1em}
+.arrival-line>span,.arrival-line>em{display:block;opacity:1;will-change:transform,opacity}
+.arrival-line>span,.arrival-line>em{animation:arrival-line-in 1.2s cubic-bezier(.16,1,.3,1) both}
+.arrival-line>em{animation-delay:.16s}
+.arrival-copy h1 em{font-weight:400;color:var(--accent)}
+.arrival-description{margin-top:27px;font-size:14px;line-height:1.8;color:#d0ddd6;animation:arrival-soft-in 1.2s .3s both}
+.arrival-progress{width:min(350px,100%);margin-top:44px}
+.arrival-progress-meta{display:flex;align-items:center;justify-content:space-between;gap:14px;margin-bottom:15px;min-height:22px}
+.arrival-progress-meta>p{font-size:11px;color:#d0ddd6;line-height:1.5}
+.arrival-status-mark{font-size:23px;font-weight:300;color:var(--accent);line-height:1}
+.arrival-progress-track{position:relative;height:2px;background:#496469;overflow:hidden;contain:paint}
+.arrival-progress-fill{position:absolute;inset:0;background:var(--accent);transform-origin:left;transition:transform 850ms cubic-bezier(.22,1,.36,1);will-change:transform}
+.arrival-progress-tide{position:absolute;inset:0;background:#f5efd9;opacity:.5;animation:arrival-progress-drift 2.8s cubic-bezier(.45,0,.55,1) infinite;will-change:transform,opacity}
+[data-preparation=ready] .arrival-progress-tide,[data-preparation=error] .arrival-progress-tide{animation:none;opacity:0}
+.arrival-help{margin-top:13px;font-size:11px;line-height:1.6;color:#d0ddd6;opacity:0;transition:opacity .3s ease;min-height:36px}
+.arrival-help.is-visible{opacity:1}
+.arrival-art{width:100%;max-width:640px;margin:0;justify-self:end;animation:arrival-art-in 1.4s cubic-bezier(.16,1,.3,1) both;will-change:transform,opacity}
+.arrival-art-stage{position:relative;width:100%;aspect-ratio:600/480;isolation:isolate}
+.arrival-islet{position:absolute;inset:0;animation:arrival-island-float 7s ease-in-out infinite;will-change:transform}
+.arrival-islet svg,.arrival-cloud svg,.arrival-boat svg{display:block;width:100%;height:100%}
+.arrival-sun{position:absolute;left:57%;top:18%;width:12%;aspect-ratio:1;border:1px solid #9baf96;border-radius:50%;opacity:.5}
+.arrival-tide{position:absolute;left:11%;top:53%;width:77%;height:30%;border:1px solid #729d92;border-radius:50%;opacity:0;animation:arrival-tide-out 7.5s linear infinite;will-change:transform,opacity}
+.arrival-tide-two{animation-delay:-2.5s}.arrival-tide-three{animation-delay:-5s}
+.arrival-cloud{position:absolute;width:29%;color:#a3b6a5;opacity:.55;will-change:transform}
+.arrival-cloud-back{left:22%;top:15%;animation:arrival-cloud-back 17s ease-in-out infinite}
+.arrival-cloud-front{left:61%;top:40%;width:23%;color:#d4d7bc;opacity:.75;animation:arrival-cloud-front 13s ease-in-out infinite}
+.arrival-boat{position:absolute;left:10%;top:72%;width:13%;animation:arrival-boat-drift 8s ease-in-out infinite;will-change:transform}
+.arrival-art figcaption{display:flex;justify-content:space-between;color:#b8cbc0;margin:0 25px;padding-top:18px;border-top:1px solid #5d797b;letter-spacing:.12em;font-size:8px}
+.arrival-art figcaption>span:last-child{color:var(--accent)}
+.arrival-footer{color:#c4d2ce;font-size:8px;letter-spacing:.12em}
+.arrival-footer a{display:flex;align-items:center;gap:18px;min-height:44px;font-family:var(--font-geist),Arial,sans-serif;font-size:12px;letter-spacing:0;text-decoration:none;color:var(--chalk)}
+.arrival-footer a span{font-size:18px;color:var(--accent)}
+.arrival-footer a:hover{text-decoration:underline;text-underline-offset:5px}
+.island-loader.is-leaving{opacity:0}
+.island-loader.is-leaving .arrival-copy{transform:translate3d(0,-10px,0);opacity:0;transition:transform 700ms cubic-bezier(.4,0,.2,1),opacity 500ms ease}
+.island-loader.is-still,.island-loader.is-still *{animation:none!important;transition:none!important;will-change:auto!important}
+.island-loader.is-still .arrival-line>*{opacity:1;transform:none}
+.island-loader.is-still .arrival-tide{opacity:.2;transform:scale(1.1)}
+.island-loader.is-still .arrival-progress-tide{display:none}
+@keyframes arrival-line-in{from{opacity:0;transform:translate3d(0,105%,0)}to{opacity:1;transform:translate3d(0,0,0)}}
+@keyframes arrival-soft-in{from{opacity:0;transform:translate3d(0,6px,0)}to{opacity:1;transform:translate3d(0,0,0)}}
+@keyframes arrival-art-in{from{opacity:0;transform:translate3d(0,12px,0) scale(.96)}to{opacity:1;transform:translate3d(0,0,0) scale(1)}}
+@keyframes arrival-island-float{0%,100%{transform:translate3d(0,0,0)}50%{transform:translate3d(0,-5px,0)}}
+@keyframes arrival-tide-out{0%{transform:scale(.83);opacity:0}18%{opacity:.32}100%{transform:scale(1.28);opacity:0}}
+@keyframes arrival-cloud-back{0%,100%{transform:translate3d(-10px,0,0)}50%{transform:translate3d(16px,-3px,0)}}
+@keyframes arrival-cloud-front{0%,100%{transform:translate3d(12px,0,0)}50%{transform:translate3d(-12px,3px,0)}}
+@keyframes arrival-boat-drift{0%,100%{transform:translate3d(0,0,0) rotate(-3deg)}50%{transform:translate3d(14px,-4px,0) rotate(2deg)}}
+@keyframes arrival-progress-drift{0%{transform:translate3d(-100%,0,0) scaleX(.2);opacity:0}20%{opacity:.55}80%{opacity:.55}100%{transform:translate3d(100%,0,0) scaleX(.2);opacity:0}}
+@media(max-width:760px){
+ .island-loader{padding:calc(20px + env(safe-area-inset-top)) 24px calc(14px + env(safe-area-inset-bottom));min-height:100svh}
+ .arrival-edition{display:none}.arrival-signature>span{font-size:23px}.arrival-signature svg{width:27px;height:27px}
+ .arrival-layout{display:flex;flex-direction:column;justify-content:center;gap:16px;margin:18px auto 8px;max-width:410px}
+ .arrival-copy{width:100%;padding:0}.arrival-kicker{font-size:7px;letter-spacing:.12em;margin-bottom:18px;gap:9px}
+ .arrival-copy h1{font-size:clamp(47px,12vw,72px);line-height:1.04}
+ .arrival-description{margin-top:18px;font-size:12px;line-height:1.65}
+ .arrival-progress{margin-top:25px;width:100%}.arrival-progress-meta{margin-bottom:10px}
+ .arrival-art{order:-1;width:min(100%,360px);align-self:center;margin:-15px auto -20px}
+ .arrival-art-stage{aspect-ratio:600/430}.arrival-art figcaption{display:none}
+ .arrival-help{min-height:28px;margin-top:10px;font-size:10px}
+ .arrival-footer>span{display:none}.arrival-footer{justify-content:flex-end}.arrival-footer a{font-size:11px}
+}
+@media(max-width:760px) and (max-height:700px){.arrival-art{width:215px;margin:-16px auto -12px}.arrival-layout{margin-top:8px;gap:5px}.arrival-copy h1{font-size:46px}.arrival-description{margin-top:12px}.arrival-progress{margin-top:20px}.arrival-kicker{margin-bottom:12px;font-size:6.5px}}
+@media(min-width:761px) and (max-height:650px){.arrival-copy h1{font-size:clamp(48px,6vw,78px)}.arrival-kicker{margin-bottom:16px}.arrival-description{margin-top:16px}.arrival-progress{margin-top:24px}.arrival-art{max-width:540px}}
+@media(prefers-reduced-motion:reduce){.island-loader,.island-loader *{animation:none!important;transition:none!important;will-change:auto!important}.arrival-line>*{opacity:1;transform:none}.arrival-tide{opacity:.2;transform:scale(1.1)}.arrival-progress-tide{display:none}}

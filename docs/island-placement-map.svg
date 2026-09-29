@@ -1,0 +1,73 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="900" viewBox="0 0 1280 900" role="img" aria-labelledby="title description">
+<title id="title">Tarosh’s island — a place to explore</title>
+<desc id="description">Schematic placement plan based on inspected model coordinates. Introduction on the veranda, engineering notebook on the rear deck, projects on the changing cabin, career cards over the hammock, contact beside the pier. The beach and lagoon remain areas to explore.</desc>
+<defs>
+ <pattern id="water" width="46" height="32" patternUnits="userSpaceOnUse"><path d="M4 17q8-6 16 0t16 0" fill="none" stroke="#b8d8cf" stroke-width="1" opacity=".15"/></pattern>
+ <pattern id="planks" width="12" height="12" patternUnits="userSpaceOnUse"><rect width="12" height="12" fill="#bda87e"/><path d="M0 0H12" stroke="#9c855f" stroke-width="1"/></pattern>
+ <g id="palm" fill="#688469" stroke="#436b5e" stroke-width="1.3"><path d="M0 0Q-26-25-33-8Q-19-3 0 0M0 0Q-4-34 10-30Q11-13 0 0M0 0Q29-23 34-7Q17-2 0 0M0 0Q31 9 21 22Q9 16 0 0M0 0Q-4 31-18 23Q-15 9 0 0M0 0Q-33 15-34 1Q-17-5 0 0"/><circle r="3" fill="#9e7852"/></g>
+ <g id="fish" fill="#a2d8c6"><ellipse rx="7" ry="3"/><path d="M6 0l6-4v8Z"/></g>
+ <style>text{font-family:Arial,sans-serif}.small{font-size:12px;letter-spacing:1.5px}.label{font-size:14px;font-weight:600;fill:#173d38}.number{font-size:12px;font-weight:700;text-anchor:middle;dominant-baseline:central;fill:#f4efd9}.body{font-size:15px;fill:#466459}.legend{font-size:21px;fill:#143e36;font-family:Georgia,serif}.line{fill:none;stroke:#e5d8af;stroke-width:1.3}.tag{fill:#f4eedb}.dot{fill:#205e50;stroke:#e7dcc0;stroke-width:2}</style>
+</defs>
+<rect width="1280" height="900" fill="#f2eedf"/>
+<rect x="28" y="28" width="800" height="844" rx="16" fill="#416e6b"/>
+<rect x="28" y="28" width="800" height="844" rx="16" fill="url(#water)"/>
+<text x="60" y="72" class="small" fill="#cbe0ce">FIELD NOTES / 01</text>
+<text x="60" y="117" fill="#f4eedb" font-family="Georgia,serif" font-size="34">A place to explore.</text>
+<text x="60" y="146" font-size="14" fill="#cbe0ce">Content belongs to objects. The camera leaves room for the island.</text>
+<!-- Shorelines are schematic; markers use the model's x/z layout. -->
+<ellipse cx="430" cy="470" rx="315" ry="285" fill="#6d9b8c" opacity=".22"/>
+<ellipse cx="430" cy="470" rx="286" ry="270" fill="none" stroke="#a6c6ae" opacity=".35"/>
+<path d="M377 195C467 199 494 271 481 333C485 395 504 447 485 504C463 568 467 659 414 703C350 746 278 711 240 660C200 604 177 550 177 479C155 413 156 326 197 269C235 207 302 183 377 195Z" fill="#d8cca3" stroke="#ecdfb6" stroke-width="7"/>
+<path d="M477 259C592 256 689 319 710 428C734 551 635 674 459 705" fill="none" stroke="#9ab39a" stroke-width="46" opacity=".2"/>
+<!-- Bungalow footprint and two outdoor decks. -->
+<path d="M215 275L334 229L432 381L311 434Z" fill="url(#planks)" stroke="#7d7654" stroke-width="2"/>
+<path d="M198 324L294 278L397 365L299 411Z" fill="#8f9676" stroke="#657b63" stroke-width="2"/>
+<path d="M203 326L297 366L391 365M297 366L299 406" fill="none" stroke="#c4c2a0" stroke-width="2"/>
+<text x="271" y="337" font-size="12" fill="#f4eedb" transform="rotate(-24 271 337)">BUNGALOW</text>
+<circle cx="212" cy="420" r="9" fill="#c5c8b3" stroke="#697764"/><path d="M213 420l6 7" stroke="#697764"/>
+<!-- Rear loungers and veranda seating. -->
+<g fill="#e0cc99" stroke="#8f835f"><rect x="286" y="260" width="19" height="44" rx="3" transform="rotate(-24 295 282)"/><rect x="336" y="283" width="19" height="44" rx="3" transform="rotate(-24 345 305)"/></g>
+<g fill="#749a84"><rect x="289" y="280" width="16" height="15" transform="rotate(-24 297 287)"/></g>
+<g fill="#b47d64"><rect x="340" y="301" width="16" height="15" transform="rotate(-24 348 309)"/></g>
+<g fill="#e0d3ad" stroke="#8d8b66"><rect x="319" y="419" width="37" height="14" rx="3"/><rect x="367" y="395" width="14" height="35" rx="3"/><rect x="337" y="438" width="22" height="16" rx="2"/></g>
+<!-- Cabin, fire pit, umbrella. -->
+<rect x="255" y="506" width="73" height="73" rx="2" fill="url(#planks)" stroke="#8f835f" stroke-width="2"/>
+<path d="M264 567V515H318V567" fill="none" stroke="#e8dbb3" stroke-width="4"/>
+<circle cx="354" cy="555" r="12" fill="#847d62"/><path d="M346 550l14 10m-14 0l14-10" stroke="#4c5849" stroke-width="4"/>
+<circle cx="411" cy="529" r="25" fill="#c9b49d" stroke="#987f6c"/>
+<path d="M387 529h48m-24-24v48m-17-41l34 34m-34 0l34-34" stroke="#ecdfc1"/>
+<rect x="405" y="559" width="20" height="37" rx="2" fill="#668d73" stroke="#8c825f"/>
+<!-- Hammock with real relative trunk orientation. -->
+<path d="M402 608Q370 642 386 676Q419 646 402 608Z" fill="#b77f60" stroke="#796e51" stroke-width="2"/>
+<path d="M402 608Q395 642 386 676" fill="none" stroke="#e9d7b4" stroke-width="3"/>
+<path d="M392 609Q365 641 378 674" fill="none" stroke="#685e44"/>
+<g fill="#f1e2b7" stroke="#9f8c61"><path d="M380 623l-11 16 13 5 10-17Z"/><path d="M372 648l1 17 14-1-1-17Z"/></g>
+<!-- Pier and original equipment. -->
+<path d="M428 424L585 449L582 477L425 452Z" fill="url(#planks)" stroke="#8f835f" stroke-width="2"/>
+<g fill="#dfd3ad" stroke="#8f835f"><circle cx="439" cy="426" r="5"/><circle cx="437" cy="451" r="5"/><circle cx="509" cy="438" r="5"/><circle cx="505" cy="464" r="5"/><circle cx="581" cy="450" r="5"/><circle cx="578" cy="474" r="5"/></g>
+<g fill="#555f54"><rect x="563" y="457" width="14" height="5" rx="2"/><rect x="560" y="465" width="14" height="5" rx="2"/></g>
+<!-- Existing vegetation and creatures, schematic. -->
+<use href="#palm" x="239" y="264"/><use href="#palm" x="414" y="252"/><use href="#palm" x="206" y="452"/><use href="#palm" x="231" y="577"/><use href="#palm" x="402" y="607"/><use href="#palm" x="386" y="676"/><use href="#palm" x="459" y="407"/>
+<use href="#fish" x="585" y="497"/><use href="#fish" x="563" y="508"/><use href="#fish" x="590" y="520"/><use href="#fish" x="556" y="560"/><use href="#fish" x="601" y="563"/>
+<!-- Anchored markers and clear labels. -->
+<path class="line" d="M352 447L317 470H179"/><rect class="tag" x="61" y="454" width="120" height="32" rx="4"/><text class="label" x="73" y="475">The veranda</text><circle class="dot" cx="352" cy="447" r="13"/><text class="number" x="352" y="447">01</text>
+<path class="line" d="M291 552L245 597H188"/><rect class="tag" x="62" y="583" width="130" height="32" rx="4"/><text class="label" x="74" y="604">Project cabin</text><circle class="dot" cx="291" cy="552" r="13"/><text class="number" x="291" y="552">02</text>
+<path class="line" d="M326 292L355 204H518"/><rect class="tag" x="519" y="188" width="133" height="32" rx="4"/><text class="label" x="531" y="209">The rear deck</text><circle class="dot" cx="326" cy="292" r="13"/><text class="number" x="326" y="292">03</text>
+<path class="line" d="M394 642L454 707H505"/><rect class="tag" x="505" y="691" width="147" height="32" rx="4"/><text class="label" x="517" y="712">Hammock stories</text><circle class="dot" cx="394" cy="642" r="13"/><text class="number" x="394" y="642">04</text>
+<path class="line" d="M565 447L602 413H639"/><rect class="tag" x="639" y="397" width="134" height="32" rx="4"/><text class="label" x="651" y="418">The postbox</text><circle class="dot" cx="565" cy="447" r="13"/><text class="number" x="565" y="447">05</text>
+<text x="606" y="608" class="small" fill="#d4e3cf">THE LAGOON</text><text x="571" y="632" font-size="13" fill="#c8dcc8">Fish, seaweed &amp; small discoveries</text>
+<path d="M60 788H796" stroke="#b7d0bf" opacity=".3"/>
+<text x="60" y="819" font-size="13" fill="#d6e1ce">Schematic plan • landmarks anchored to model coordinates</text>
+<text x="60" y="841" font-size="12" fill="#b4cdba">Roof, vegetation and shorelines simplified. New content placements are proposed.</text>
+<!-- Editorial legend. -->
+<text x="872" y="73" class="small" fill="#71816a">PLACEMENT DECISIONS</text>
+<text x="872" y="118" font-family="Georgia,serif" font-size="31" fill="#163f35">Let the island lead.</text>
+<text x="872" y="151" class="body">Five content homes. A whole island</text><text x="872" y="174" class="body">left open for curiosity.</text>
+<path d="M872 199H1236" stroke="#c7c9b1"/>
+<text x="873" y="237" class="small" fill="#7a895f">01 / ABOUT</text><text x="872" y="267" class="legend">A magazine on the table</text><text x="872" y="293" class="body">Read an introduction among the sofas,</text><text x="872" y="316" class="body">coffee tables and everyday objects.</text>
+<text x="873" y="357" class="small" fill="#7a895f">02 / SELECTED WORK</text><text x="872" y="387" class="legend">Projects pinned to the cabin</text><text x="872" y="413" class="body">Two visual project posters; the beach</text><text x="872" y="436" class="body">chalkboard becomes their small index.</text>
+<text x="873" y="477" class="small" fill="#7a895f">03 / ENGINEERING</text><text x="872" y="507" class="legend">A notebook on the rear deck</text><text x="872" y="533" class="body">Build, scale, operate, explore — beside</text><text x="872" y="556" class="body">the loungers, with space to look around.</text>
+<text x="873" y="597" class="small" fill="#7a895f">04 / THE JOURNEY</text><text x="872" y="627" class="legend">Career cards between palms</text><text x="872" y="653" class="body">Three chapters pegged above the</text><text x="872" y="676" class="body">hammock, tied to its actual trees.</text>
+<text x="873" y="717" class="small" fill="#7a895f">05 / CONTACT</text><text x="872" y="747" class="legend">A little postbox on the pier</text><text x="872" y="773" class="body">An invitation to connect, with the</text><text x="872" y="796" class="body">walkway and water still in view.</text>
+<path d="M872 824H1236" stroke="#c7c9b1"/><text x="872" y="852" font-size="13" fill="#466459">Wide views first. Close reading by choice.</text>
+</svg>

@@ -1,0 +1,250 @@
+/* Reading editions of the island's found objects. All selectors are scoped. */
+.artifact-reader {
+  --ar-ink: #263e34;
+  --ar-muted: #66715e;
+  --ar-paper: #f5eedb;
+  --ar-rule: #cfcbb5;
+  width: min(960px, calc(100vw - 80px));
+  max-width: none;
+  max-height: calc(100dvh - 64px);
+  margin: auto;
+  padding: 0;
+  border: 0;
+  border-radius: 3px;
+  overflow: hidden;
+  color: var(--ar-ink);
+  background: var(--ar-paper);
+  font-family: var(--font-geist), Arial, sans-serif;
+  text-align: left;
+  overscroll-behavior: contain;
+}
+.artifact-reader::backdrop { background: rgba(10, 29, 27, .49); backdrop-filter: blur(2px); }
+/* The scene camera reaches the physical magazine before this paper is revealed. */
+.artifact-reader.ar-animated { transform-origin: 50% 55%; animation: ar-paper-reveal 320ms cubic-bezier(.2,.7,.2,1) both; }
+.artifact-reader.ar-animated::backdrop { animation: ar-backdrop-reveal 320ms ease-out both; }
+.artifact-reader.ar-animated.ar-closing { animation: ar-paper-dismiss 200ms cubic-bezier(.4,0,.6,1) both; }
+.artifact-reader.ar-animated.ar-closing::backdrop { animation: ar-backdrop-dismiss 200ms ease-in both; }
+@keyframes ar-paper-reveal {
+  from { opacity: 0; transform: translateY(10px) scale(.96); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+@keyframes ar-paper-dismiss {
+  from { opacity: 1; transform: translateY(0) scale(1); }
+  to { opacity: 0; transform: translateY(6px) scale(.98); }
+}
+@keyframes ar-backdrop-reveal { from { opacity: 0; } to { opacity: 1; } }
+@keyframes ar-backdrop-dismiss { from { opacity: 1; } to { opacity: 0; } }
+.artifact-reader .ar-window { max-height: calc(100dvh - 64px); display: flex; flex-direction: column; }
+.artifact-reader .ar-toolbar { flex: 0 0 auto; display: flex; align-items: center; gap: 20px; min-height: 62px; padding: 10px 25px; border-bottom: 1px solid var(--ar-rule); background: #eee7d4; }
+.artifact-reader .ar-close { min-height: 44px; display: inline-flex; align-items: center; gap: 11px; padding: 6px 2px; color: var(--ar-ink); font-size: 12px; font-weight: 550; background: none; white-space: nowrap; }
+.artifact-reader .ar-close > span { font-size: 21px; line-height: 1; transition: transform 160ms; }
+.artifact-reader .ar-close:hover > span { transform: translateX(-3px); }
+.artifact-reader .ar-close:disabled { cursor: default; }
+.artifact-reader .ar-close:disabled > span { transform: none; }
+.artifact-reader .ar-context { flex: 1; text-align: center; font-family: var(--font-cormorant), Georgia, serif; font-size: 18px; font-style: italic; }
+.artifact-reader .ar-escape-hint { color: var(--ar-muted); font-family: var(--font-dm-mono), monospace; font-size: 9px; letter-spacing: .08em; }
+.artifact-reader .ar-scroll { min-height: 0; max-height: calc(100dvh - 126px); overflow-y: auto; overscroll-behavior: contain; touch-action: pan-y; scrollbar-width: thin; scrollbar-color: #a6ac96 var(--ar-paper); }
+.artifact-reader :is(h1, h2, h3, p, ul, dl, dd) { margin: 0; }
+.artifact-reader :is(button, a, [tabindex]):focus-visible { outline: 2px solid #9b6d34; outline-offset: 4px; }
+.artifact-reader [hidden] { display: none !important; }
+.artifact-reader .ar-overline { font-family: var(--font-dm-mono), monospace; font-size: 10px; line-height: 1.6; letter-spacing: .16em; text-transform: uppercase; color: var(--ar-muted); }
+.artifact-reader .ar-handwritten { font-family: var(--font-caveat), cursive; font-weight: 500; }
+.artifact-reader .ar-lead { font-size: 18px; line-height: 1.7; font-weight: 400; }
+.artifact-reader .ar-body { font-size: 15px; line-height: 1.85; color: #4f5e4f; }
+.artifact-reader .ar-heading { margin-bottom: 29px; }
+.artifact-reader .ar-heading h1 { font-family: var(--font-cormorant), Georgia, serif; font-size: clamp(38px, 4.8vw, 58px); font-weight: 500; line-height: 1.08; letter-spacing: -.035em; margin-top: 10px; }
+.artifact-reader .ar-deck { color: var(--ar-muted); font-size: 15px; line-height: 1.65; margin-top: 14px; }
+.artifact-reader .ar-tabs { display: flex; gap: 22px; border-bottom: 1px solid var(--ar-rule); margin-bottom: 28px; }
+.artifact-reader .ar-tab { display: inline-flex; align-items: center; gap: 9px; min-width: 44px; min-height: 48px; padding: 10px 1px; border: 0; border-bottom: 2px solid transparent; background: none; color: var(--ar-muted); font-size: 13px; line-height: 1.4; text-align: left; }
+.artifact-reader .ar-tab-number { font-family: var(--font-dm-mono), monospace; font-size: 9px; opacity: .7; }
+.artifact-reader .ar-tab[aria-selected='true'] { color: var(--ar-ink); border-bottom-color: var(--ar-ink); }
+.artifact-reader .ar-tab:hover { color: var(--ar-ink); }
+.artifact-reader .ar-page-footer { display: flex; align-items: center; justify-content: space-between; gap: 20px; border-top: 1px solid var(--ar-rule); padding-top: 21px; margin-top: 36px; font-family: var(--font-dm-mono), monospace; font-size: 10px; line-height: 1.6; color: var(--ar-muted); }
+
+/* Magazine: a printed cover and a personal editorial page. */
+.artifact-reader .ar-magazine-spread { display: grid; grid-template-columns: .85fr 1.15fr; }
+.artifact-reader .ar-magazine-cover { display: flex; flex-direction: column; padding: 43px 38px 36px; color: #f6f0db; background: #335245; }
+.artifact-reader .ar-magazine-cover .ar-overline { color: #dae1c7; }
+.artifact-reader .ar-island-mark { width: min(100%, 220px); height: 142px; margin: 31px 0 25px; color: #d8c991; }
+.artifact-reader .ar-magazine-cover h1 { font-family: var(--font-cormorant), Georgia, serif; font-size: clamp(44px, 5.1vw, 67px); font-weight: 500; letter-spacing: -.045em; line-height: .99; }
+.artifact-reader .ar-cover-role { font-size: 13px; line-height: 1.7; margin-top: 22px; color: #e1e7d3; }
+.artifact-reader .ar-cover-location { font-family: var(--font-dm-mono), monospace; font-size: 10px; letter-spacing: .03em; line-height: 1.5; margin-top: auto; padding-top: 49px; color: #d2d9c1; }
+.artifact-reader .ar-magazine-story { padding: 38px 43px 37px; background-image: linear-gradient(90deg, rgba(89,78,48,.055), transparent 5%); }
+.artifact-reader .ar-greeting { font-size: 44px; line-height: 1.1; margin-bottom: 23px; }
+.artifact-reader .ar-magazine-story .ar-body { margin-top: 20px; }
+.artifact-reader .ar-margin-note { font-family: var(--font-dm-mono), monospace; font-size: 9px; line-height: 1.8; padding-top: 20px; margin-top: 22px; border-top: 1px solid var(--ar-rule); color: var(--ar-muted); }
+.artifact-reader .ar-signature { font-size: 28px; line-height: 1.17; margin-top: 25px; color: #526849; }
+
+/* Notebook: numbered tabs, large handwritten labels, ruled tool notes. */
+.artifact-reader .ar-notebook-page { position: relative; padding: 39px 64px 28px 78px; background-image: linear-gradient(90deg, transparent 47px, #d9c3ac 47px, #d9c3ac 48px, transparent 48px); }
+.artifact-reader .ar-notebook-heading { display: flex; align-items: center; justify-content: space-between; gap: 20px; }
+.artifact-reader .ar-notebook-heading h2 { font-size: 52px; line-height: 1.12; }
+.artifact-reader .ar-page-number { font-family: var(--font-cormorant), Georgia, serif; font-size: 60px; color: #b3b69d; font-style: italic; }
+.artifact-reader .ar-notebook-section > .ar-lead { margin-top: 4px; color: #53634f; }
+.artifact-reader .ar-tool-list { list-style: none; padding: 0; margin-top: 20px; }
+.artifact-reader .ar-tool-list li { display: flex; gap: 15px; align-items: baseline; padding: 14px 0; border-bottom: 1px solid rgba(114,135,123,.26); font-size: 18px; line-height: 1.55; }
+.artifact-reader .ar-tool-tick { font-family: var(--font-caveat), cursive; color: #758760; font-size: 22px; }
+
+/* Posters: large project names, brief technical facts, restrained diagrams. */
+.artifact-reader .ar-poster-page { padding: 39px 58px 41px; background: #eee9d7; }
+.artifact-reader .ar-project-heading h2 { max-width: 690px; font-family: var(--font-cormorant), Georgia, serif; font-size: clamp(40px, 5.4vw, 66px); line-height: 1.04; font-weight: 600; letter-spacing: -.04em; margin-top: 8px; }
+.artifact-reader .ar-project-period { font-family: var(--font-dm-mono), monospace; font-size: 10px; line-height: 1.6; margin-top: 15px; color: var(--ar-muted); }
+.artifact-reader .ar-project-panel > .ar-lead { max-width: 750px; margin-top: 26px; }
+.artifact-reader .ar-project-diagram { margin-top: 27px; padding: 23px 0 5px; border-top: 1px solid var(--ar-rule); }
+.artifact-reader .ar-diagram-caption { font-family: var(--font-dm-mono), monospace; font-size: 9px; text-transform: uppercase; letter-spacing: .12em; color: var(--ar-muted); }
+.artifact-reader .ar-system-flow { display: flex; justify-content: space-between; align-items: center; gap: 13px; max-width: 640px; margin-top: 20px; }
+.artifact-reader .ar-system-flow > span { font-family: var(--font-cormorant), Georgia, serif; font-size: 29px; font-weight: 600; line-height: 1.1; }
+.artifact-reader .ar-system-flow small { display: block; font-family: var(--font-dm-mono), monospace; font-size: 9px; font-weight: 400; color: var(--ar-muted); line-height: 1.5; margin-top: 7px; }
+.artifact-reader .ar-system-flow i { color: #9b9b76; font-size: 28px; font-style: normal; }
+.artifact-reader .ar-project-tags { display: flex; flex-wrap: wrap; gap: 10px 23px; padding: 20px 0 0; margin-top: 24px; border-top: 1px solid var(--ar-rule); list-style: none; font-family: var(--font-dm-mono), monospace; color: #566951; font-size: 10px; line-height: 1.5; }
+.artifact-reader .ar-research-facts { display: grid; grid-template-columns: 1.2fr .85fr 1fr; gap: 20px; margin-top: 27px; padding-top: 22px; border-top: 1px solid var(--ar-rule); }
+.artifact-reader .ar-research-facts dt { font-family: var(--font-cormorant), Georgia, serif; font-size: 47px; font-weight: 500; line-height: 1.1; letter-spacing: -.04em; }
+.artifact-reader .ar-research-facts dt span { font-size: 25px; }
+.artifact-reader .ar-research-facts dd { font-family: var(--font-dm-mono), monospace; font-size: 10px; color: var(--ar-muted); margin-top: 5px; line-height: 1.5; }
+
+/* Career card: a chronological record with the complete original detail. */
+.artifact-reader .ar-career-page { padding: 39px 58px 28px; }
+.artifact-reader .ar-career-record { position: relative; padding-left: 26px; border-left: 1px solid #b5bea5; }
+.artifact-reader .ar-career-record::before { content: ''; position: absolute; top: 5px; left: -5px; width: 9px; height: 9px; background: #6a7e5b; border-radius: 50%; }
+.artifact-reader .ar-career-period { font-family: var(--font-dm-mono), monospace; font-size: 11px; line-height: 1.7; color: #647654; }
+.artifact-reader .ar-career-record h2 { font-family: var(--font-cormorant), Georgia, serif; font-size: 40px; line-height: 1.1; font-weight: 600; letter-spacing: -.025em; margin-top: 11px; }
+.artifact-reader .ar-career-company { font-family: var(--font-dm-mono), monospace; color: var(--ar-muted); font-size: 10px; letter-spacing: .055em; line-height: 1.7; margin-top: 13px; }
+.artifact-reader .ar-career-bullets { list-style: none; padding: 0; margin-top: 23px; }
+.artifact-reader .ar-career-bullets li { position: relative; font-size: 16px; line-height: 1.75; padding-left: 20px; margin-bottom: 12px; }
+.artifact-reader .ar-career-bullets li::before { content: '—'; position: absolute; left: 0; color: #8c9675; }
+
+/* Contact: open correspondence, with each address an explicit action. */
+.artifact-reader.ar-edition--letter { width: min(770px, calc(100vw - 80px)); }
+.artifact-reader .ar-contact-letter { padding: 30px 59px 36px; background-image: linear-gradient(178deg, transparent 48%, rgba(160,148,119,.035) 49%, transparent 51%); }
+.artifact-reader .ar-letter-heading { display: flex; justify-content: space-between; align-items: center; gap: 30px; min-height: 80px; }
+.artifact-reader .ar-postmark { width: 77px; height: 77px; flex: 0 0 auto; border: 1px solid #8c9b80; outline: 1px solid #8c9b80; outline-offset: -6px; border-radius: 50%; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 7px; font-family: var(--font-dm-mono), monospace; font-size: 8px; letter-spacing: .07em; color: #75856a; transform: rotate(-12deg); }
+.artifact-reader .ar-contact-letter h1 { font-size: clamp(43px, 6.5vw, 64px); line-height: 1.05; margin-top: 15px; }
+.artifact-reader .ar-contact-letter > .ar-lead { font-size: 16px; margin-top: 22px; }
+.artifact-reader .ar-addresses { margin-top: 30px; font-style: normal; }
+.artifact-reader .ar-addresses a { display: grid; grid-template-columns: 74px minmax(0, 1fr) 20px; align-items: baseline; gap: 16px; padding: 17px 0; border-bottom: 1px solid var(--ar-rule); text-decoration: none; }
+.artifact-reader .ar-addresses a:hover .ar-address-value { text-decoration: underline; text-underline-offset: 4px; }
+.artifact-reader .ar-address-label { font-family: var(--font-dm-mono), monospace; color: var(--ar-muted); font-size: 10px; }
+.artifact-reader .ar-address-value { font-size: 16px; line-height: 1.5; overflow-wrap: anywhere; }
+.artifact-reader .ar-address-arrow { color: #788768; font-size: 20px; }
+.artifact-reader .ar-contact-note { color: var(--ar-muted); font-family: var(--font-dm-mono), monospace; font-size: 10px; line-height: 1.8; margin-top: 24px; }
+
+/* Field notes: two readable case studies carried by the island's quieter shores. */
+.artifact-reader .ar-field-page { padding: 39px 58px 28px; }
+.artifact-reader .ar-field-page .ar-deck { max-width: 660px; }
+.artifact-reader .ar-field-metrics { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 28px; padding: 26px 0 29px; border-block: 1px solid var(--ar-rule); }
+.artifact-reader .ar-field-metrics > div + div { padding-left: 28px; border-left: 1px solid var(--ar-rule); }
+.artifact-reader .ar-field-metrics dt, .artifact-reader .ar-field-result dt { font-family: var(--font-cormorant), Georgia, serif; font-size: clamp(43px, 5.5vw, 66px); font-weight: 500; line-height: 1; letter-spacing: -.045em; font-variant-numeric: lining-nums; }
+.artifact-reader .ar-field-metrics dd, .artifact-reader .ar-field-result dd { max-width: 230px; margin-top: 11px; font-family: var(--font-dm-mono), monospace; font-size: 10px; line-height: 1.7; color: var(--ar-muted); }
+.artifact-reader .ar-field-entries { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 38px; margin-top: 30px; }
+.artifact-reader .ar-field-entry h2, .artifact-reader .ar-field-toolkit h2 { font-family: var(--font-cormorant), Georgia, serif; font-weight: 500; font-size: 30px; line-height: 1.15; letter-spacing: -.025em; margin-top: 11px; }
+.artifact-reader .ar-field-entry .ar-body, .artifact-reader .ar-field-toolkit .ar-body { margin-top: 14px; font-size: 14px; }
+.artifact-reader .ar-field-detail { margin-top: 17px; font-family: var(--font-dm-mono), monospace; color: var(--ar-muted); font-size: 9px; line-height: 1.8; }
+.artifact-reader .ar-field-result { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr); align-items: center; gap: 32px; padding: 27px 30px; background: #e7e7d5; border-left: 3px solid #899a71; }
+.artifact-reader .ar-field-result .ar-overline { font-weight: 400; }
+.artifact-reader .ar-field-result .ar-lead { margin-top: 10px; font-size: 17px; line-height: 1.6; }
+.artifact-reader .ar-field-result dl { padding-left: 28px; border-left: 1px solid #c5ccb3; }
+.artifact-reader .ar-field-flow { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 24px; list-style: none; padding: 26px 0; margin: 0; border-bottom: 1px solid var(--ar-rule); }
+.artifact-reader .ar-field-flow li { position: relative; display: flex; flex-direction: column; gap: 8px; font-size: 15px; line-height: 1.5; }
+.artifact-reader .ar-field-flow li + li::before { content: '→'; position: absolute; top: 22px; left: -23px; color: #798668; }
+.artifact-reader .ar-field-step { font-family: var(--font-dm-mono), monospace; font-size: 9px; color: var(--ar-muted); }
+.artifact-reader .ar-field-toolkit { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 38px; margin-top: 27px; }
+.artifact-reader .ar-field-toolkit h2 { margin-top: 0; }
+.artifact-reader .ar-field-toolkit dl > div { display: grid; grid-template-columns: 64px minmax(0, 1fr); gap: 12px; padding: 11px 0; border-bottom: 1px solid var(--ar-rule); }
+.artifact-reader .ar-field-toolkit dt { font-family: var(--font-dm-mono), monospace; font-size: 9px; color: var(--ar-muted); line-height: 1.9; }
+.artifact-reader .ar-field-toolkit dd { font-size: 12px; line-height: 1.7; }
+
+@media (max-width: 760px), (max-width: 1024px) and (max-height: 500px) {
+  .artifact-reader, .artifact-reader.ar-edition--letter { width: calc(100vw - 30px); max-height: calc(100dvh - 30px); }
+  .artifact-reader .ar-window { max-height: calc(100dvh - 30px); }
+  .artifact-reader .ar-scroll { max-height: calc(100dvh - 90px); }
+  .artifact-reader .ar-toolbar { min-height: 60px; padding: 9px 20px; }
+  .artifact-reader .ar-context { text-align: right; font-size: 15px; }
+  .artifact-reader .ar-escape-hint { display: none; }
+  .artifact-reader .ar-magazine-spread { grid-template-columns: minmax(0, 1fr); }
+  .artifact-reader .ar-magazine-cover { display: grid; grid-template-columns: 1fr 95px; gap: 0 15px; padding: 28px 30px; }
+  .artifact-reader .ar-magazine-cover .ar-overline { grid-column: 1; }
+  .artifact-reader .ar-island-mark { grid-column: 2; grid-row: 1 / 4; width: 95px; height: 94px; margin: 6px 0 0; }
+  .artifact-reader .ar-magazine-cover h1 { font-size: 43px; margin-top: 14px; max-width: 290px; }
+  .artifact-reader .ar-cover-role { font-size: 11px; margin-top: 13px; }
+  .artifact-reader .ar-cover-location { grid-column: 1 / -1; padding-top: 15px; font-size: 9px; }
+  .artifact-reader .ar-magazine-story { padding: 29px 30px 35px; }
+  .artifact-reader .ar-greeting { font-size: 39px; margin-bottom: 19px; }
+  .artifact-reader .ar-lead { font-size: 16px; }
+  .artifact-reader .ar-body { font-size: 14px; }
+  .artifact-reader .ar-heading h1 { font-size: 41px; }
+  .artifact-reader .ar-notebook-page { padding: 30px 27px 25px 37px; background-image: linear-gradient(90deg, transparent 19px, #d9c3ac 19px, #d9c3ac 20px, transparent 20px); }
+  .artifact-reader .ar-poster-page, .artifact-reader .ar-career-page { padding: 30px 28px 27px; }
+  .artifact-reader .ar-tabs { gap: 15px; }
+  .artifact-reader .ar-tab { gap: 6px; font-size: 12px; }
+  .artifact-reader .ar-tab-number { display: none; }
+  .artifact-reader .ar-notebook-heading h2 { font-size: 46px; }
+  .artifact-reader .ar-tool-list li { font-size: 16px; gap: 10px; }
+  .artifact-reader .ar-project-heading h2 { font-size: 43px; }
+  .artifact-reader .ar-system-flow { gap: 8px; }
+  .artifact-reader .ar-system-flow > span { font-size: 24px; }
+  .artifact-reader .ar-system-flow small { font-size: 8px; }
+  .artifact-reader .ar-system-flow i { font-size: 19px; }
+  .artifact-reader .ar-research-facts { gap: 12px; }
+  .artifact-reader .ar-research-facts dt { font-size: 36px; }
+  .artifact-reader .ar-research-facts dd { font-size: 9px; }
+  .artifact-reader .ar-career-record { padding-left: 19px; }
+  .artifact-reader .ar-career-record h2 { font-size: 33px; }
+  .artifact-reader .ar-career-bullets li { font-size: 15px; }
+  .artifact-reader .ar-page-footer { font-size: 9px; }
+  .artifact-reader .ar-contact-letter { padding: 27px 28px 32px; }
+  .artifact-reader .ar-contact-letter h1 { font-size: 48px; }
+  .artifact-reader .ar-addresses a { grid-template-columns: 55px minmax(0, 1fr) 18px; gap: 10px; }
+  .artifact-reader .ar-address-value { font-size: 14px; }
+  .artifact-reader .ar-address-label { font-size: 9px; }
+  .artifact-reader .ar-field-page { padding: 30px 28px 27px; }
+  .artifact-reader .ar-field-metrics { gap: 20px; padding-block: 22px; }
+  .artifact-reader .ar-field-metrics > div + div { padding-left: 20px; }
+  .artifact-reader .ar-field-metrics dt { font-size: 44px; }
+  .artifact-reader .ar-field-metrics dd { font-size: 9px; }
+  .artifact-reader .ar-field-entries, .artifact-reader .ar-field-toolkit { grid-template-columns: minmax(0, 1fr); gap: 26px; }
+  .artifact-reader .ar-field-entry + .ar-field-entry { padding-top: 23px; border-top: 1px solid var(--ar-rule); }
+  .artifact-reader .ar-field-result { grid-template-columns: minmax(0, 1fr); gap: 22px; padding: 22px; }
+  .artifact-reader .ar-field-result dl { border-left: none; border-top: 1px solid #c5ccb3; padding: 20px 0 0; }
+  .artifact-reader .ar-field-result dt { font-size: 52px; }
+  .artifact-reader .ar-field-flow { gap: 18px; }
+  .artifact-reader .ar-field-flow li { font-size: 12px; }
+  .artifact-reader .ar-field-flow li + li::before { left: -18px; }
+  .artifact-reader .ar-field-toolkit { gap: 15px; }
+}
+@media (max-width: 420px) {
+  .artifact-reader .ar-magazine-cover { grid-template-columns: minmax(0, 1fr) 68px; }
+  .artifact-reader .ar-magazine-cover h1 { font-size: 39px; }
+  .artifact-reader .ar-island-mark { width: 68px; height: 75px; }
+  .artifact-reader .ar-toolbar { padding-inline: 17px; gap: 10px; }
+  .artifact-reader .ar-context { font-size: 13px; max-width: 135px; margin-left: auto; }
+  .artifact-reader .ar-close { font-size: 11px; }
+  .artifact-reader .ar-heading h1 { font-size: 36px; }
+  .artifact-reader .ar-tabs { gap: 11px; }
+  .artifact-reader .ar-tab { font-size: 12px; }
+  .artifact-reader .ar-project-heading h2 { font-size: 39px; }
+  .artifact-reader .ar-contact-letter h1 { font-size: 43px; }
+  .artifact-reader .ar-addresses a { grid-template-columns: 1fr 18px; gap: 5px; }
+  .artifact-reader .ar-address-label { grid-column: 1 / -1; }
+  .artifact-reader .ar-postmark { width: 65px; height: 65px; font-size: 7px; }
+  .artifact-reader .ar-page-footer { flex-wrap: wrap; gap: 8px; }
+  .artifact-reader .ar-field-metrics { gap: 14px; }
+  .artifact-reader .ar-field-metrics > div + div { padding-left: 14px; }
+  .artifact-reader .ar-field-metrics dt { font-size: 35px; }
+  .artifact-reader .ar-field-flow { gap: 15px; }
+  .artifact-reader .ar-field-flow li { font-size: 11px; }
+  .artifact-reader .ar-field-flow li + li::before { left: -16px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .artifact-reader, .artifact-reader::backdrop, .artifact-reader *, .artifact-reader *::before, .artifact-reader *::after { transition: none !important; animation: none !important; }
+}
+@media(min-width:761px) and (max-height:800px){
+  .artifact-reader .ar-notebook-page{padding-top:25px}
+  .artifact-reader .ar-notebook-page .ar-heading{margin-bottom:14px}
+  .artifact-reader .ar-notebook-page .ar-heading h1{font-size:46px}
+  .artifact-reader .ar-notebook-page .ar-tabs{margin-bottom:14px}
+  .artifact-reader .ar-notebook-heading h2{font-size:43px}
+  .artifact-reader .ar-page-number{font-size:48px}
+  .artifact-reader .ar-tool-list{margin-top:10px}
+  .artifact-reader .ar-tool-list li{font-size:16px;padding:9px 0}
+  .artifact-reader .ar-notebook-page .ar-page-footer{margin-top:22px;padding-top:15px}
+}

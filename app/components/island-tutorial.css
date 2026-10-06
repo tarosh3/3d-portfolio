@@ -1,0 +1,71 @@
+/* Coaching sits over the live island; every actual control remains interactive. */
+.island-tutorial {
+  position: fixed; inset: 0; z-index: 160;
+  pointer-events: none; color: #24483f;
+  font-family: var(--font-geist), Arial, sans-serif;
+}
+/* Keep the reader coach within its paper even when reduced motion removes its transform. */
+.artifact-reader .island-tutorial { position: absolute; transform: translateZ(0); }
+.tutorial-coach {
+  position: absolute; bottom: 122px; left: 50%; width: max-content; max-width: min(380px, calc(100% - 32px));
+  display: flex; align-items: center; gap: 12px; min-height: 58px;
+  padding: 6px 8px 6px 16px; transform: translateX(-50%);
+  border: 1px solid rgba(236, 223, 182, .22); border-radius: 12px;
+  background: rgba(17, 49, 46, .72); color: #fff2d9;
+  box-shadow: 0 3px 15px rgba(7, 26, 23, .12);
+  animation: tutorial-coach-arrive .3s cubic-bezier(.2,.7,.2,1) both;
+}
+.tutorial-step-count { flex: 0 0 auto; color: #dfc990; font-family: var(--font-dm-mono), monospace; font-size: 10px; line-height: 1; letter-spacing: .02em; }
+.tutorial-coach-copy { min-width: 0; }
+.island-tutorial .tutorial-coach p { margin: 0; font-size: 12px; line-height: 1.5; color: #fff2d9; text-wrap: pretty; }
+.island-tutorial .tutorial-skip { flex: 0 0 auto; pointer-events: auto; min-width: 44px; min-height: 44px; margin: 0; padding: 8px; border: 0; border-radius: 8px; background: transparent; color: #e7dbc1; font-size: 11px; cursor: pointer; }
+.island-tutorial .tutorial-skip:hover { color: #fff9e9; background: rgba(255, 244, 211, .08); }
+.island-tutorial .tutorial-coach-action { pointer-events: auto; display: inline-flex; align-items: center; gap: 8px; min-height: 44px; margin: 0; padding: 7px 0; border: 0; background: transparent; color: #edcf90; font-size: 11px; text-decoration: underline; text-underline-offset: 4px; cursor: pointer; }
+.island-tutorial .tutorial-coach-action:hover { color: #fff1cf; }
+.island-tutorial button:focus-visible { outline: 2px solid #efd192; outline-offset: 2px; }
+.tutorial-pointer-anchor { position: fixed; left: var(--target-x, -200px); top: var(--target-y, -200px); width: 0; height: 0; pointer-events: none; visibility: hidden; }
+.tutorial-pointer-anchor[data-ready='true'] { visibility: visible; }
+.island-tutorial[data-busy='true'] .tutorial-pointer-anchor, .island-tutorial[data-step='done'] .tutorial-pointer-anchor { visibility: hidden; }
+.tutorial-target-halo { position: absolute; left: 0; top: 0; width: calc(var(--target-width, 44px) + 14px); height: calc(var(--target-height, 44px) + 14px); border: 1px solid rgba(255, 224, 153, .95); border-radius: 30px; transform: translate(-50%, -50%); box-shadow: 0 0 0 4px rgba(241, 194, 110, .15), 0 0 22px rgba(255, 214, 140, .45); animation: tutorial-target-breathe 2.8s ease-in-out infinite; }
+.tutorial-demo-pointer { position: absolute; left: -3px; top: -2px; width: 34px; height: 42px; filter: drop-shadow(0 3px 5px rgba(9, 37, 30, .3)); animation: tutorial-point-click 2.8s cubic-bezier(.45, 0, .2, 1) infinite; }
+.tutorial-demo-pointer > svg { display: block; width: 100%; height: 100%; }
+.tutorial-click-ripple { position: absolute; left: -13px; top: -13px; width: 26px; height: 26px; border: 2px solid #fff0c8; border-radius: 50%; box-shadow: 0 0 12px rgba(255, 214, 128, .6); animation: tutorial-click-ripple 2.8s ease-out infinite; }
+.tutorial-gesture-track { display: none; }
+.island-tutorial[data-step='open'] .tutorial-target-halo { border: 0; border-radius: 50%; box-shadow: 0 0 25px rgba(255, 214, 140, .24); }
+.island-tutorial[data-step='look'] .tutorial-target-halo { display: none; }
+.island-tutorial[data-step='look'] .tutorial-gesture-track { display: block; position: absolute; left: -64px; top: 0; width: 128px; height: 1px; border-top: 1px dashed rgba(255, 241, 194, .8); filter: drop-shadow(0 1px 2px #29483b); }
+.island-tutorial[data-step='look'] .tutorial-gesture-track::before, .island-tutorial[data-step='look'] .tutorial-gesture-track::after { content: ''; position: absolute; width: 7px; height: 7px; top: -4px; border: solid rgba(255, 241, 194, .9); border-width: 1px 1px 0 0; }
+.island-tutorial[data-step='look'] .tutorial-gesture-track::before { left: 0; transform: rotate(-135deg); }
+.island-tutorial[data-step='look'] .tutorial-gesture-track::after { right: 0; transform: rotate(45deg); }
+.island-tutorial[data-step='look'] .tutorial-demo-pointer { animation: tutorial-point-drag 3s cubic-bezier(.45, 0, .2, 1) infinite; }
+.island-tutorial[data-step='look'] .tutorial-click-ripple { display: none; }
+.island-tutorial[data-mobile='true'] .tutorial-demo-pointer { width: 34px; height: 40px; left: -17px; top: -7px; }
+.island-tutorial[data-step='return'] .tutorial-coach { top: auto; left: auto; right: 18px; bottom: 18px; transform: none; max-width: calc(100% - 36px); animation-name: tutorial-reader-coach-arrive; }
+@keyframes tutorial-coach-arrive { from { opacity: 0; transform: translate(-50%, -6px); } to { opacity: 1; transform: translate(-50%, 0); } }
+@keyframes tutorial-reader-coach-arrive { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes tutorial-target-breathe { 0%, 100% { opacity: .55; } 45%, 65% { opacity: 1; } }
+@keyframes tutorial-point-click { 0%, 12%, 100% { transform: translate(36px, 28px); opacity: 0; } 30%, 66% { transform: translate(0, 0); opacity: 1; } 43% { transform: translate(0, 0) scale(.88); opacity: 1; } 80% { transform: translate(16px, 12px); opacity: 0; } }
+@keyframes tutorial-click-ripple { 0%, 35%, 75%, 100% { transform: scale(.6); opacity: 0; } 43% { transform: scale(.7); opacity: .9; } 68% { transform: scale(2.2); opacity: 0; } }
+@keyframes tutorial-point-drag { 0%, 12% { transform: translate(-52px, 0); opacity: 0; } 22%, 32% { transform: translate(-52px, 0); opacity: 1; } 65%, 78% { transform: translate(52px, 0); opacity: 1; } 88%, 100% { transform: translate(52px, 0); opacity: 0; } }
+@media (max-width: 600px) {
+  .tutorial-coach { top: 102px; bottom: auto; max-width: min(310px, calc(100% - 24px)); gap: 9px; min-height: 58px; padding: 6px 7px 6px 12px; border-radius: 11px; }
+  .island-tutorial .tutorial-coach p { font-size: 11px; line-height: 1.5; }
+  .tutorial-step-count { font-size: 9px; }
+  .island-tutorial[data-step='return'] .tutorial-coach { bottom: 14px; right: 14px; max-width: calc(100% - 28px); }
+}
+@media (max-width: 600px) and (max-height: 650px) {
+  .tutorial-coach { top: 82px; }
+}
+@media (min-width: 601px) and (max-height: 500px) {
+  .tutorial-coach { bottom: 98px; }
+}
+.island-tutorial[data-reduced='true'] *, .island-tutorial[data-reduced='true'] *::before, .island-tutorial[data-reduced='true'] *::after { animation: none !important; transition: none !important; }
+.island-tutorial[data-reduced='true'] .tutorial-click-ripple { display: none; }
+@media (prefers-reduced-motion: reduce) {
+  .island-tutorial *, .island-tutorial *::before, .island-tutorial *::after { animation: none !important; transition: none !important; }
+  .island-tutorial .tutorial-click-ripple { display: none; }
+}
+/* The welcome title occupies the top on phones; guide the first arrow near the footer. */
+@media (max-width: 600px) {
+  .island-tutorial[data-step='travel'] .tutorial-coach { top: auto; bottom: calc(164px + env(safe-area-inset-bottom, 0px)); }
+}

@@ -1,0 +1,23 @@
+.island-brand-logo{display:block;width:100%;line-height:0}
+.island-brand-logo img{display:block;width:100%;height:auto;object-fit:contain}
+
+/* Preserve the supplied artwork's transparency without a surrounding plate.
+   Fixed aspect ratios reserve space before the image decodes. */
+.explore-brand{flex:none;width:226px;min-height:44px;padding:5px 9px;background:transparent;
+  border:0;box-shadow:none}
+.explore-brand:hover{background:transparent}
+.explore-brand:focus-visible{outline:2px solid #efc77b;outline-offset:4px}
+.arrival-signature{width:274px;padding:8px 12px;background:transparent;flex-shrink:0}
+.reading-header .reading-brand{width:min(450px,100%);margin:28px 0 20px}
+.guide-header .guide-brand{width:270px;max-width:100%;margin:12px 0}
+.guide-header>div{min-width:0}
+
+@media(max-width:1100px) and (min-width:761px){.explore-brand{width:190px}}
+@media(max-width:760px),(max-width:1024px) and (max-height:500px){
+  .explore-header{gap:8px}
+  .explore-brand{width:138px;padding:4px 7px}
+  .arrival-signature{width:228px;padding:6px 10px}
+  .guide-header .guide-brand{width:225px}
+}
+@media(max-width:359px){.explore-header{gap:6px}.explore-brand{width:104px;padding:4px 6px}.arrival-signature{width:210px}.guide-header .guide-brand{width:190px}}
+@media(max-height:500px){.arrival-signature{width:190px;padding:4px 8px}}

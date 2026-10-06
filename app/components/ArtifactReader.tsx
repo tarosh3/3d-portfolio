@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useId, useRef, useState, type KeyboardEvent } from 'react'
+import { useEffect, useId, useRef, useState, type KeyboardEvent, type ReactNode } from 'react'
 import type { ReadRequest } from './island-data'
 import { contacts, experience, fieldNotes, profile, projects, skillGroups } from '../portfolio-data'
 import { LagoonFieldLog, WestShoreFieldBoard } from './FieldLogContent'
@@ -11,6 +11,7 @@ type ReaderProps = {
   animated?: boolean
   closing?: boolean
   onExited?: () => void
+  tutorial?: ReactNode
   restoreFocus?: boolean
 }
 
@@ -195,7 +196,7 @@ function ContactLetter({ id }: { id: string }) {
   )
 }
 
-export default function ArtifactReader({ request, onClose, animated = false, closing = false, onExited, restoreFocus = true }: ReaderProps) {
+export default function ArtifactReader({ request, onClose, animated = false, closing = false, onExited, restoreFocus = true, tutorial }: ReaderProps) {
   const dialogRef = useRef<HTMLDialogElement>(null)
   const closeRef = useRef<HTMLButtonElement>(null)
   const scrollRef = useRef<HTMLDivElement>(null)
@@ -286,6 +287,7 @@ export default function ArtifactReader({ request, onClose, animated = false, clo
           {request.stage === 7 && <WestShoreFieldBoard id={id} />}
         </div>
       </div>
+      {tutorial}
     </dialog>
   )
 }

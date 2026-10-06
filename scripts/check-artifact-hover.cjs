@@ -60,16 +60,46 @@ const intersections = []
 hull.children[0].raycast(new THREE.Raycaster(), intersections)
 assert.equal(intersections.length, 0, 'Glow intercepted selection')
 
+// Invitations illuminate all authored surfaces without lifting or resizing the
+// prop. Sample after the reveal has settled and cover a complete pulse cycle.
+effect.reset()
+let idleMin = Infinity, idleMax = 0, idleEmissiveMax = 0
+for (let i = 0; i < 240; i++) {
+  effect.update(false, 1 / 60, false, true)
+  assert.ok(group.scale.equals(originalScale), 'Idle glow resized the artifact')
+  assert.ok(group.position.equals(originalPosition), 'Idle glow moved the artifact')
+  for (const shell of [hull, flat]) {
+    assert.equal(shell.visible, true, 'Idle invitation missed an authored surface')
+    for (const layer of shell.children) assert.ok(layer.material.opacity > 0, 'Idle shell is unlit')
+  }
+  if (i >= 60) {
+    idleMin = Math.min(idleMin, hull.children[0].material.opacity)
+    idleMax = Math.max(idleMax, hull.children[0].material.opacity)
+    idleEmissiveMax = Math.max(idleEmissiveMax, cloned.emissive.r)
+  }
+}
+assert.ok(idleMin > 0, 'An invitation must stay discoverable between beats')
+assert.ok(idleMax - idleMin > .04, 'Entire-object light must visibly pulse')
+for (let i = 0; i < 40; i++) effect.update(true, 1 / 60, false, true)
+assert.ok(hull.children[0].material.opacity > idleMax, 'Hover must brighten the idle glow')
+assert.ok(cloned.emissive.r > idleEmissiveMax, 'Hover must warm the entire printed surface')
+assert.ok(Math.abs(group.scale.x / originalScale.x - 1.02) < 1e-8)
+for (let i = 0; i < 40; i++) effect.update(false, 1 / 60, false, true)
+assert.ok(group.scale.equals(originalScale)); assert.ok(group.position.equals(originalPosition))
+assert.equal(hull.visible, true, 'Mouseout must preserve the idle invitation')
+assert.ok(hull.children[0].material.opacity >= idleMin - .001)
+
 // Frame updates must only mutate cached values. Ban setup APIs while running
-// both directions; also assert stable geometry/material/tree identities.
+// idle and both hover directions; also assert stable resource identities.
 const originalTraverse = group.traverse, originalClone = THREE.Vector3.prototype.clone
 const originalMaterialClone = THREE.Material.prototype.clone, originalColorClone = THREE.Color.prototype.clone
 const materialId = page.material, shellId = hull.children[0]
 group.traverse = () => { throw Error('Frame traversal') }
 THREE.Vector3.prototype.clone = THREE.Material.prototype.clone = THREE.Color.prototype.clone = () => { throw Error('Frame allocation') }
 try {
-  for (let i = 0; i < 40; i++) effect.update(false, 1 / 60)
-  for (let i = 0; i < 40; i++) effect.update(true, 1 / 60)
+  for (let i = 0; i < 180; i++) effect.update(false, 1 / 60, false, true)
+  for (let i = 0; i < 40; i++) effect.update(true, 1 / 60, false, true)
+  for (let i = 0; i < 40; i++) effect.update(false, 1 / 60, false, true)
 } finally {
   group.traverse = originalTraverse
   THREE.Vector3.prototype.clone = originalClone
@@ -84,6 +114,24 @@ assert.equal(hull.visible, false)
 assert.ok(cloned.emissive.equals(beforeEmissive))
 assert.equal(effect.update(true, 1 / 60, true), false, 'Reduced motion should settle immediately')
 assert.ok(Math.abs(group.scale.x / originalScale.x - 1.02) < 1e-8)
+assert.equal(effect.update(false, 1 / 60, true, true), false, 'Still invitation must settle in one frame')
+const stillOpacity = hull.children[0].material.opacity, stillEmissive = cloned.emissive.clone()
+assert.ok(stillOpacity > 0, 'Still must retain a visible invitation')
+for (let i = 0; i < 90; i++) {
+  assert.equal(effect.update(false, 1 / 60, true, true), false, 'Still requested more frames')
+  assert.equal(hull.children[0].material.opacity, stillOpacity)
+  assert.ok(cloned.emissive.equals(stillEmissive))
+  assert.ok(group.scale.equals(originalScale)); assert.ok(group.position.equals(originalPosition))
+}
+assert.equal(effect.update(true, 1 / 60, true, true), false)
+assert.ok(hull.children[0].material.opacity > stillOpacity)
+effect.reset()
+assert.equal(hull.visible, false, 'Reset must hide cues before a paused reader')
+assert.equal(flat.visible, false)
+assert.equal(hull.children[0].material.opacity, 0)
+assert.ok(cloned.emissive.equals(beforeEmissive))
+assert.equal(effect.update(false, 1 / 60, true, false), false)
+assert.equal(hull.visible, false, 'Inactive invitation came back after reset')
 effect.dispose()
 assert.equal(page.material, material)
 assert.equal(print.material, material)
@@ -96,4 +144,36 @@ const again = createArtifactHover(group)
 again.update(true, .02); again.dispose()
 assert.equal(page.material, material)
 assert.ok(group.position.equals(originalPosition))
-console.log('Artifact hover passed: desktop gating, 2% ease, anchored pivot, warm glow, raycast exclusion, stable frame resources, reduced motion and cleanup')
+
+// Phones retain the idle affordance with fewer draws; touch hover is already
+// rejected by the input policy above. Frame updates still reuse every resource.
+const mobileEffect = createArtifactHover(group, true)
+const mobileHull = page.children.find(child => child.name === 'Artifact hover glow')
+const mobileFlat = print.children.find(child => child.name === 'Artifact hover glow')
+assert.equal(mobileHull.children.length, 2); assert.equal(mobileFlat.children.length, 2)
+const mobileMaterial = page.material, mobileShell = mobileHull.children[0]
+group.traverse = () => { throw Error('Mobile frame traversal') }
+THREE.Vector3.prototype.clone = THREE.Material.prototype.clone = THREE.Color.prototype.clone = () => { throw Error('Mobile frame allocation') }
+let mobileMin = Infinity, mobileMax = 0
+try {
+  for (let i = 0; i < 240; i++) {
+    mobileEffect.update(false, 1 / 60, false, true)
+    assert.ok(group.scale.equals(originalScale)); assert.ok(group.position.equals(originalPosition))
+    if (i >= 60) {
+      mobileMin = Math.min(mobileMin, mobileShell.material.opacity)
+      mobileMax = Math.max(mobileMax, mobileShell.material.opacity)
+    }
+  }
+} finally {
+  group.traverse = originalTraverse
+  THREE.Vector3.prototype.clone = originalClone
+  THREE.Material.prototype.clone = originalMaterialClone
+  THREE.Color.prototype.clone = originalColorClone
+}
+assert.ok(mobileMin > 0 && mobileMax - mobileMin > .04, 'Mobile idle light must pulse')
+assert.equal(page.material, mobileMaterial); assert.equal(mobileHull.children[0], mobileShell)
+mobileEffect.dispose()
+assert.equal(page.material, material); assert.equal(print.material, material)
+assert.equal(group.getObjectByName('Artifact hover glow'), undefined)
+assert.equal(geometryDisposals + textureDisposals + originalDisposals, 0)
+console.log('Artifact glow passed: full-object idle pulse, stronger desktop hover, fixed idle footprint, 2% anchored ease, mobile shell budget, allocation-free frames, Still and resource cleanup')

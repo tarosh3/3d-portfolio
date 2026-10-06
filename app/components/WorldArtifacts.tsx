@@ -7,7 +7,7 @@ import * as THREE from 'three'
 import { makeArtifactPrint, type PrintKind } from './artifact-textures'
 import type { AreaId, ReadRequest } from './island-data'
 import { createArtifactHover, isDesktopHover } from './artifact-hover'
-import { ArtifactInvitations, ArtifactInvitation as Marker } from './ArtifactInvitations'
+import { ArtifactInvitations, ArtifactInvitation as Marker, ArtifactInteraction, useArtifactInteraction } from './ArtifactInvitations'
 
 type Vec3 = [number, number, number]
 type Quat = [number, number, number, number]
@@ -21,7 +21,7 @@ type Props = {
   reduced: boolean
   enabled: boolean
 }
-const HoverContext = createContext({ capable: false, reduced: false, reset: 0 })
+const HoverContext = createContext({ capable: false, reduced: false, reset: 0, mobile: false })
 
 function usePrint(kind: PrintKind) {
   const texture = useMemo(() => makeArtifactPrint(kind), [kind])
@@ -30,36 +30,35 @@ function usePrint(kind: PrintKind) {
 }
 
 function Selectable({ children, onSelect, enabled }: { children: ReactNode; onSelect: () => void; enabled: boolean }) {
-  const [hovered, setHovered] = useState(false)
-  const { capable, reduced, reset } = useContext(HoverContext)
+  const { available, hovered, setObjectHovered } = useArtifactInteraction()
+  const { capable, reduced, reset, mobile } = useContext(HoverContext)
   const { invalidate, gl } = useThree()
   const root = useRef<THREE.Group>(null)
   const effect = useRef<ReturnType<typeof createArtifactHover> | null>(null)
-  const hoverTarget = useRef(false)
   const active = hovered && enabled && capable
   useCursor(active, 'pointer', '', gl.domElement)
   useLayoutEffect(() => {
-    if (!capable || !root.current) return
-    const highlight = createArtifactHover(root.current)
+    if (!root.current) return
+    const highlight = createArtifactHover(root.current, mobile)
     effect.current = highlight
     return () => { highlight.dispose(); effect.current = null }
-  }, [capable])
-  useEffect(() => {
-    hoverTarget.current = false; setHovered(false); effect.current?.reset(); invalidate()
-  }, [capable, enabled, reset, invalidate])
+  }, [mobile])
+  useLayoutEffect(() => {
+    setObjectHovered(false); effect.current?.reset(); invalidate()
+  }, [capable, enabled, available, reset, invalidate, setObjectHovered])
   useEffect(() => { invalidate() }, [active, reduced, invalidate])
   useFrame((_, delta) => {
-    if (effect.current?.update(hoverTarget.current && enabled && capable, delta, reduced)) invalidate()
+    if (effect.current?.update(active, delta, reduced, available && enabled)) invalidate()
   })
-  const clear = () => { hoverTarget.current = false; setHovered(false); effect.current?.reset(); invalidate() }
+  const clear = () => { setObjectHovered(false); effect.current?.reset(); invalidate() }
   const over = (event: ThreeEvent<PointerEvent>) => {
     if (!enabled || !isDesktopHover(event.pointerType, event.buttons, capable)) return
-    event.stopPropagation(); hoverTarget.current = true; setHovered(true); invalidate()
+    event.stopPropagation(); setObjectHovered(true); invalidate()
   }
   return <group ref={root}
     onPointerOver={over}
     onPointerMove={over}
-    onPointerOut={() => { hoverTarget.current = false; setHovered(false); invalidate() }}
+    onPointerOut={() => { setObjectHovered(false); invalidate() }}
     onPointerDown={clear}
     onPointerCancel={clear}
     onClick={(event: ThreeEvent<MouseEvent>) => {
@@ -96,32 +95,36 @@ function Magazine({ onRead, activeArea, enabled }: Pick<Props, 'onRead' | 'activ
     { position: [-.96042, 3.1005, .00344], quaternion: [-.66222, -.24951, -.25003, .66083], height: .194, kind: 'magazine' },
     { position: [-1.10219, 3.09895, .16443], quaternion: [-.65529, -.2521, -.24741, .6677], height: .178, kind: 'magazine-back' },
   ]
-  return <>
+  return <ArtifactInteraction active={activeArea === 'veranda'}>
     <Selectable enabled={enabled} onSelect={() => onRead({ stage: 1 })}>
       {pages.map(page => <group key={page.kind} position={page.position} quaternion={page.quaternion}>
         <Print kind={page.kind} width={.294} height={page.height} />
       </group>)}
     </Selectable>
-    <Marker active={activeArea === 'veranda'} position={[-1.025, 3.145, .083]} onSelect={() => onRead({ stage: 1 })}>Open magazine</Marker>
-  </>
+    <Marker position={[-1.025, 3.145, .083]} onSelect={() => onRead({ stage: 1 })}>Open magazine</Marker>
+  </ArtifactInteraction>
 }
 
 function CabinPosters({ onRead, onNavigate, activeArea, enabled }: Pick<Props, 'onRead' | 'onNavigate' | 'activeArea' | 'enabled'>) {
   return <>
     <group position={[-4.34089, 3.75651, 4.86166]} quaternion={[-.00305, -.37208, -.03008, .92771]}>
       {(['fitnyx', 'segmentation'] as const).map((kind, i) => <group key={kind} position={[(i ? 1 : -1) * .56, .02, 0]} rotation={[0, 0, i ? .017 : -.021]}>
+        <ArtifactInteraction active={activeArea === 'cabin'}>
         <Selectable enabled={enabled} onSelect={() => onRead({ stage: 3, item: i })}>
           <Print kind={kind} width={.56} height={.765} />
           <Pin position={[-.23, .35, .008]} /><Pin position={[.23, .35, .008]} />
         </Selectable>
-        <Marker active={activeArea === 'cabin'} position={[0, 0, .06]} onSelect={() => onRead({ stage: 3, item: i })}>{i ? 'Research' : 'FitNyx'}</Marker>
+        <Marker position={[0, 0, .06]} onSelect={() => onRead({ stage: 3, item: i })}>{i ? 'Research' : 'FitNyx'}</Marker>
+        </ArtifactInteraction>
       </group>)}
     </group>
     <group position={[-4.18035, 3.11654, 8.16818]} quaternion={[-.11875, -.10219, -.03707, .98696]}>
+      <ArtifactInteraction active={activeArea === 'beach'}>
       <Selectable enabled={enabled} onSelect={() => onNavigate('cabin')}>
         <Print kind="index" width={.519} height={.746} />
       </Selectable>
-      <Marker active={activeArea === 'beach'} position={[0, .05, .055]} onSelect={() => onNavigate('cabin')}>Projects at the cabin</Marker>
+      <Marker position={[0, .05, .055]} onSelect={() => onNavigate('cabin')}>Projects at the cabin</Marker>
+      </ArtifactInteraction>
     </group>
   </>
 }
@@ -129,7 +132,7 @@ function CabinPosters({ onRead, onNavigate, activeArea, enabled }: Pick<Props, '
 function Notebook({ onRead, activeArea, enabled }: Pick<Props, 'onRead' | 'activeArea' | 'enabled'>) {
   // A 35 × 19.5 cm tray fits the far half of the 45 cm table. The bottle occupies
   // its near half. This footprint is measured in the table's own surface basis.
-  return <>
+  return <ArtifactInteraction active={activeArea === 'deck'}>
     <group position={[-1.29341, 3.09853, -6.72417]} quaternion={[-.65696, .26049, .25986, .65805]}>
       <mesh receiveShadow castShadow><boxGeometry args={[.35, .195, .018]} /><meshStandardMaterial color="#a8885e" roughness={.96} /></mesh>
       {[-1, 1].map(side => <mesh key={side} position={[side * .1725, 0, .012]} receiveShadow castShadow>
@@ -149,8 +152,8 @@ function Notebook({ onRead, activeArea, enabled }: Pick<Props, 'onRead' | 'activ
         <boxGeometry args={[.006, .144, .006]} /><meshStandardMaterial color="#6c4e30" roughness={.9} />
       </mesh>
     </group>
-    <Marker active={activeArea === 'deck'} position={[-1.293, 3.155, -6.724]} onSelect={() => onRead({ stage: 2, item: 0 })}>Open notebook</Marker>
-  </>
+    <Marker position={[-1.293, 3.155, -6.724]} onSelect={() => onRead({ stage: 2, item: 0 })}>Open notebook</Marker>
+  </ArtifactInteraction>
 }
 
 function CareerCard({ position, kind, index, reduced, enabled, active, onRead }: {
@@ -166,6 +169,7 @@ function CareerCard({ position, kind, index, reduced, enabled, active, onRead }:
   })
   return <group position={position} rotation={[0, 1.335, (index - 1) * .022]}>
     <group ref={pivot}>
+      <ArtifactInteraction active={active}>
       <Selectable enabled={enabled} onSelect={() => onRead({ stage: 4, item: index })}>
         <group position={[0, -.31, 0]}><Print kind={kind} width={.44} height={.58} double /></group>
         {[-.16, .16].map(x => <group key={x} position={[x, -.024, .014]}>
@@ -173,7 +177,8 @@ function CareerCard({ position, kind, index, reduced, enabled, active, onRead }:
           <mesh position={[0, 0, .015]}><boxGeometry args={[.03, .008, .004]} /><meshStandardMaterial color="#827567" roughness={.5} metalness={.6} /></mesh>
         </group>)}
       </Selectable>
-      <Marker active={active} position={[0, -.32, .10]} onSelect={() => onRead({ stage: 4, item: index })}>{['2018–22', '2022', '2022–now'][index]}</Marker>
+      <Marker position={[0, -.32, .10]} onSelect={() => onRead({ stage: 4, item: index })}>{['2018–22', '2022', '2022–now'][index]}</Marker>
+      </ArtifactInteraction>
     </group>
   </group>
 }
@@ -193,17 +198,19 @@ function CareerLine({ onRead, activeArea, reduced, enabled }: Pick<Props, 'onRea
 
 function DoorNote({ onRead, activeArea, enabled }: Pick<Props, 'onRead' | 'activeArea' | 'enabled'>) {
   return <group position={[-1.333, 4.109, -3.170]} quaternion={[.00015, .54031, -.00134, .84147]}>
+    <ArtifactInteraction active={activeArea === 'veranda'}>
     <Selectable enabled={enabled} onSelect={() => onRead({ stage: 4, item: 2, source: 'door' })}>
       <Print kind="door" width={.33} height={.44} />
       <Pin position={[0, .202, .008]} />
     </Selectable>
-    <Marker active={activeArea === 'veranda'} position={[0, 0, .075]} secondary onSelect={() => onRead({ stage: 4, item: 2, source: 'door' })}>Current role</Marker>
+    <Marker position={[0, 0, .075]} secondary onSelect={() => onRead({ stage: 4, item: 2, source: 'door' })}>Current role</Marker>
+    </ArtifactInteraction>
   </group>
 }
 
 function Postbox({ onRead, activeArea, enabled }: Pick<Props, 'onRead' | 'activeArea' | 'enabled'>) {
   const mailMap = usePrint('mail')
-  return <>
+  return <ArtifactInteraction active={activeArea === 'pier'}>
     {/* Fitted to the real outer pier post at [7.277, 2.642, 1.337]. */}
     <group position={[7.27708, 2.66, 1.33696]} rotation={[0, .35, 0]}>
       <Selectable enabled={enabled} onSelect={() => onRead({ stage: 5 })}>
@@ -223,13 +230,14 @@ function Postbox({ onRead, activeArea, enabled }: Pick<Props, 'onRead' | 'active
         <mesh position={[.266, .452, 0]} castShadow><boxGeometry args={[.09, .063, .016]} /><meshStandardMaterial color="#b36148" roughness={.88} /></mesh>
       </Selectable>
     </group>
-    <Marker active={activeArea === 'pier'} position={[7.346, 2.95, 1.525]} onSelect={() => onRead({ stage: 5 })}>Send a note</Marker>
-  </>
+    <Marker position={[7.346, 2.95, 1.525]} onSelect={() => onRead({ stage: 5 })}>Send a note</Marker>
+  </ArtifactInteraction>
 }
 
 function LagoonLog({ onRead, activeArea, enabled }: Pick<Props, 'onRead' | 'activeArea' | 'enabled'>) {
   const texture = usePrint('lagoon-log')
   return <group position={[8.20, 2.40, .90]} rotation={[-Math.PI / 2, 0, .12]}>
+    <ArtifactInteraction active={activeArea === 'lagoon'}>
     <Selectable enabled={enabled} onSelect={() => onRead({ stage: 6 })}>
       <mesh position={[0, 0, -.018]} castShadow receiveShadow>
         <boxGeometry args={[.76, .58, .032]} /><meshStandardMaterial color="#805f43" roughness={.98} />
@@ -241,7 +249,8 @@ function LagoonLog({ onRead, activeArea, enabled }: Pick<Props, 'onRead' | 'acti
         <cylinderGeometry args={[.018, .018, .012, 8]} /><meshStandardMaterial color="#b28a57" roughness={.62} metalness={.3} />
       </mesh>)}
     </Selectable>
-    <Marker active={activeArea === 'lagoon'} position={[0, 0, .06]} onSelect={() => onRead({ stage: 6 })}>Open tide log</Marker>
+    <Marker position={[0, 0, .06]} onSelect={() => onRead({ stage: 6 })}>Open tide log</Marker>
+    </ArtifactInteraction>
   </group>
 }
 
@@ -249,6 +258,7 @@ function WestShoreBoard({ onRead, activeArea, enabled }: Pick<Props, 'onRead' | 
   const texture = usePrint('shoreboard')
   // Match the angled wall normal and clear the fern below the satellite dish.
   return <group position={[-7.30, 3.96, -2.22]} rotation={[0, -2, 0]}>
+    <ArtifactInteraction active={activeArea === 'west'}>
     <Selectable enabled={enabled} onSelect={() => onRead({ stage: 7 })}>
       <mesh position={[0, 0, -.018]} castShadow receiveShadow>
         <boxGeometry args={[.98, .80, .036]} /><meshStandardMaterial color="#765a43" roughness={.98} />
@@ -260,7 +270,8 @@ function WestShoreBoard({ onRead, activeArea, enabled }: Pick<Props, 'onRead' | 
         <cylinderGeometry args={[.018, .018, .012, 8]} /><meshStandardMaterial color="#b28a57" roughness={.62} metalness={.3} />
       </mesh>)}
     </Selectable>
-    <Marker active={activeArea === 'west'} position={[0, 0, .06]} onSelect={() => onRead({ stage: 7 })}>Read field board</Marker>
+    <Marker position={[0, 0, .06]} onSelect={() => onRead({ stage: 7 })}>Read field board</Marker>
+    </ArtifactInteraction>
   </group>
 }
 
@@ -286,8 +297,8 @@ export default function WorldArtifacts(props: Props) {
       document.removeEventListener('visibilitychange', hidden)
     }
   }, [])
-  const hover = useMemo(() => ({ capable: finePointer && !props.mobile, reduced: props.reduced, reset }), [finePointer, props.mobile, props.reduced, reset])
-  return <ArtifactInvitations model={props.model} mobile={Boolean(props.mobile)} reduced={props.reduced} enabled={props.enabled && props.cuesEnabled}><HoverContext.Provider value={hover}><group name="Portfolio artifacts">
+  const hover = useMemo(() => ({ capable: finePointer && !props.mobile, reduced: props.reduced, reset, mobile: Boolean(props.mobile) }), [finePointer, props.mobile, props.reduced, reset])
+  return <ArtifactInvitations model={props.model} mobile={Boolean(props.mobile)} reduced={props.reduced} enabled={props.enabled && props.cuesEnabled} reset={reset} capable={hover.capable}><HoverContext.Provider value={hover}><group name="Portfolio artifacts">
     <Magazine {...props} />
     <CabinPosters {...props} />
     <Notebook {...props} />

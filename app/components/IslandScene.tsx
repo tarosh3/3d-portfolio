@@ -17,6 +17,16 @@ import IslandWater from './IslandWater'
 import IslandSky from './IslandSky'
 import IslandDayCycle from './IslandDayCycle'
 import SceneReadiness from './SceneReadiness'
+import IslandWeatherDriver from './IslandWeatherDriver'
+import IslandRain from './IslandRain'
+import IslandSound from './IslandSound'
+import WeatherControl from './WeatherControl'
+import { createWeather, type IslandWeather, type WeatherKind } from './island-weather'
+import CinematicTourControl from './CinematicTourControl'
+import BrandLogo from './BrandLogo'
+import IslandTutorial, { TUTORIAL_SESSION_KEY } from './IslandTutorial'
+import TutorialTarget from './TutorialTarget'
+import { advanceTutorial, type TutorialStep, type TutorialGesture } from './island-tutorial'
 import { createDayCycle, type DayCycle } from './day-cycle'
 import { ARRIVAL_SESSION_KEY, STILL_SESSION_KEY, sessionFlag, setSessionFlag, shouldPlayArrival, type ArrivalPhase } from './island-arrival'
 import { areaById, TOUR, type AreaId, type ReadRequest } from './island-data'
@@ -65,58 +75,7 @@ class SceneBoundary extends Component<{ children: ReactNode; onRead: () => void;
 function RendererFallback() {
   return <div className="scene-fallback"><p>Explore the text edition of this island.</p><a href="/read">Read the portfolio</a></div>
 }
-const SOUND_OFF_SESSION_KEY = 'island-sound-off'
-// Browsers block audible autoplay, so sound is on by default and starts with the
-// visitor's first interaction. The audio file is only requested at that point.
-// pointerup, touchend and keyup are not consumed by the arrival skip handler.
-const SOUND_START_INPUTS = ['pointerup', 'touchend', 'keyup', 'click', 'keydown'] as const
-function SoundControl() {
-  const sound = useRef<HTMLAudioElement | null>(null)
-  const [enabled, setEnabled] = useState(() => !sessionFlag(SOUND_OFF_SESSION_KEY))
-  const wanted = useRef(enabled)
-  const [playing, setPlaying] = useState(false)
-  const [error, setError] = useState(false)
-  const load = () => {
-    if (!sound.current) {
-      sound.current = new Audio('/sounds/beach-ambience.mp3')
-      sound.current.loop = true; sound.current.volume = .22
-    }
-    return sound.current
-  }
-  useEffect(() => () => { sound.current?.pause() }, [])
-  useEffect(() => { setSessionFlag(SOUND_OFF_SESSION_KEY, !enabled) }, [enabled])
-  useEffect(() => {
-    if (!enabled || playing) return
-    const start = (event: Event) => {
-      // The toggle handles its own clicks; starting here would turn sound on then off.
-      if (event.target instanceof Element && event.target.closest('[data-sound-toggle]')) return
-      load().play().then(() => {
-        if (wanted.current) { setPlaying(true); setError(false) } else sound.current?.pause()
-      }, () => { /* Not a qualifying gesture yet; wait for the next one. */ })
-    }
-    SOUND_START_INPUTS.forEach(type => window.addEventListener(type, start, { capture: true, passive: true }))
-    return () => SOUND_START_INPUTS.forEach(type => window.removeEventListener(type, start, true))
-  }, [enabled, playing])
-  const toggle = async () => {
-    if (enabled) {
-      wanted.current = false
-      sound.current?.pause(); setPlaying(false); setEnabled(false); setError(false)
-      return
-    }
-    wanted.current = true
-    setEnabled(true)
-    try {
-      await load().play()
-      if (wanted.current) { setPlaying(true); setError(false) }
-    } catch { setError(true) }
-  }
-  return <button className="explore-tool" data-sound-toggle onClick={toggle} aria-label={enabled ? 'Turn island sounds off' : 'Turn island sounds on'} aria-pressed={enabled}>
-    <span className={`sound-bars ${playing ? 'is-playing' : ''}`} aria-hidden="true"><i /><i /><i /><i /></span>
-    <span>{error ? 'Unavailable' : enabled ? 'Sound on' : 'Sound off'}</span>
-  </button>
-}
-
-function DaylightAtmosphere({ cycle, reduced, paused }: { cycle: DayCycle; reduced: boolean; paused: boolean }) {
+function DaylightAtmosphere({ cycle, weather, reduced, paused }: { cycle: DayCycle; weather: IslandWeather; reduced: boolean; paused: boolean }) {
   const { camera } = useThree()
   const atmosphere = useRef<THREE.Group>(null)
   const halo = useRef<THREE.Sprite>(null)
@@ -141,17 +100,17 @@ function DaylightAtmosphere({ cycle, reduced, paused }: { cycle: DayCycle; reduc
   useFrame((_, delta) => {
     if (!atmosphere.current || !halo.current) return
     atmosphere.current.position.copy(camera.position)
-    atmosphere.current.quaternion.copy(camera.quaternion)
-    atmosphere.current.translateX(10)
-    atmosphere.current.translateY(8)
-    atmosphere.current.translateZ(-44)
-    halo.current.material.opacity = .54 * (1 - cycle.value)
+    // Keep the solar glow aligned with the world's key light while orbiting.
+    atmosphere.current.position.x += 55
+    atmosphere.current.position.y += 90
+    atmosphere.current.position.z += 85
+    halo.current.material.opacity = .38 * (1 - cycle.value) * weather.sun * weather.sun
     if (paused || reduced) return
     halo.current.material.rotation += Math.min(delta, .05) * .018
   })
 
   return <group ref={atmosphere}>
-    <sprite ref={halo} scale={[18, 18, 1]} renderOrder={-11}>
+    <sprite ref={halo} scale={[24, 24, 1]} renderOrder={-11}>
       <spriteMaterial map={sunTexture} transparent opacity={.54} depthWrite={false} toneMapped={false} blending={THREE.AdditiveBlending} />
     </sprite>
   </group>
@@ -183,9 +142,18 @@ export default function IslandScene({ visible, sceneRevealed = visible, suspende
   const scenePrepared = useCallback(() => { setRenderReady(true); onReady?.() }, [onReady])
   useEffect(() => { onLoadProgress?.({ progress, active, errors, total, loaded }) }, [progress, active, errors, total, loaded, onLoadProgress])
   const [request, setRequest] = useState<{ area: AreaId; serial: number }>({ area: 'overview', serial: 0 })
+  const requestRef = useRef(request); requestRef.current = request
+  const [settledSerial, setSettledSerial] = useState(-1)
+  const [arrivedSerial, setArrivedSerial] = useState(-1)
   const [moving, setMoving] = useState(false)
   const [cut, setCut] = useState(false)
   const [guideOpen, setGuideOpen] = useState(false)
+  const [tutorialOpen, setTutorialOpen] = useState(false)
+  const tutorialActive = useRef(tutorialOpen); tutorialActive.current = tutorialOpen
+  const [tutorialStep, setTutorialStep] = useState<TutorialStep>('travel')
+  const tutorialTarget = useRef<HTMLDivElement>(null)
+  const [tutorialBookVisible, setTutorialBookVisible] = useState(false)
+  const tutorialHandled = useRef(sessionFlag(TUTORIAL_SESSION_KEY))
   const [focus, setFocus] = useState<ArtifactFocus | null>(null)
   const focusState = useRef<ArtifactFocus | null>(null)
   const focusSerial = useRef(0)
@@ -197,6 +165,22 @@ export default function IslandScene({ visible, sceneRevealed = visible, suspende
   const [model, setModel] = useState<THREE.Group | null>(null)
   const [pageActive, setPageActive] = useState(true)
   const [dusk, setDusk] = useState(false)
+  const [cinematic, setCinematic] = useState<{ serial: number; seed: number } | null>(null)
+  const cinematicSerial = useRef(0)
+  const cinematicSeed = useRef(0)
+  const [cinematicNotice, setCinematicNotice] = useState('')
+  const stopCinematic = useCallback((unavailable = false) => {
+    setCinematic(null)
+    setCinematicNotice(unavailable ? 'A clear camera route isn’t available from here. Try the tour from Whole island.' : '')
+  }, [])
+  const [weatherKind, setWeatherKind] = useState<WeatherKind>('clear')
+  const weather = useMemo(createWeather, [])
+  const [weatherLowQuality, setWeatherLowQuality] = useState(false)
+  const lowerWeatherQuality = useCallback(() => setWeatherLowQuality(true), [])
+  const cinematicMinute = useCallback(() => {
+    setDusk(value => !value)
+    setWeatherKind(value => ({ clear: 'cloudy', cloudy: 'rain', rain: 'storm', storm: 'clear' } as const)[value])
+  }, [])
   const cycle = useMemo(createDayCycle, [])
   const [mobile, setMobile] = useState(() => typeof window !== 'undefined' && window.matchMedia(MOBILE_GRAPHICS_QUERY).matches)
   const [phoneShadowsOff, setPhoneShadowsOff] = useState(false)
@@ -220,8 +204,32 @@ export default function IslandScene({ visible, sceneRevealed = visible, suspende
   const paused = guideOpen || hasReading || suspended || !pageActive
   const area = areaById(request.area)
   const sectionIndex = SECTIONS.indexOf(request.area)
-  const scrollState = useRef({ visible, paused, area: request.area })
-  scrollState.current = { visible, paused: paused || Boolean(focus) || arrival !== 'done', area: request.area }
+  const scrollState = useRef({ visible, paused, area: request.area, cinematic: Boolean(cinematic) })
+  scrollState.current = { visible, paused: paused || Boolean(focus) || arrival !== 'done', area: request.area, cinematic: Boolean(cinematic) }
+  const closeTutorial = useCallback(() => {
+    tutorialHandled.current = true
+    setSessionFlag(TUTORIAL_SESSION_KEY)
+    setTutorialOpen(false)
+  }, [])
+  const toggleCinematic = () => {
+    if (cinematic) { stopCinematic(); return }
+    if (reduced || paused || focus || arrival !== 'done') return
+    if (tutorialOpen) closeTutorial()
+    let seed = Math.floor(Math.random() * 0xffffffff)
+    if (seed === cinematicSeed.current) seed = (seed + 1) >>> 0
+    cinematicSeed.current = seed
+    setCinematicNotice(''); setMapOpen(false); setSettingsOpen(false); setDiscoveryHelp(false); setExplored(true)
+    setCinematic({ serial: ++cinematicSerial.current, seed })
+  }
+  useEffect(() => {
+    if (!cinematic) return
+    const stop = (event: KeyboardEvent) => {
+      if (event.key !== 'Escape') return
+      event.preventDefault(); stopCinematic()
+    }
+    document.addEventListener('keydown', stop)
+    return () => document.removeEventListener('keydown', stop)
+  }, [cinematic, stopCinematic])
   useEffect(() => {
     if (!visible) return
     // Consume the first reveal even when skipped, reduced, or opened as text.
@@ -246,22 +254,45 @@ export default function IslandScene({ visible, sceneRevealed = visible, suspende
   }, [arrival, visible, finishArrival])
   const navigate = useCallback((id: AreaId) => {
     if (focusState.current) return
+    setCinematic(null); setCinematicNotice('')
     setSettingsOpen(false)
     setExplored(id !== 'overview'); setRequest(previous => ({ area: id, serial: previous.serial + 1 }))
     if (window.matchMedia(COMPACT_LAYOUT_QUERY).matches) setMapOpen(false)
   }, [])
+  const openTutorial = useCallback(() => {
+    if (!visible || focusState.current || arrival !== 'done') return
+    tutorialHandled.current = true
+    setCinematic(null); setSettingsOpen(false); setMapOpen(false); setDiscoveryHelp(false)
+    setTutorialStep('travel'); setTutorialBookVisible(false); setTutorialOpen(true)
+    if (request.area !== 'overview') navigate('overview')
+  }, [visible, arrival, request.area, navigate])
+  useEffect(() => {
+    if (tutorialHandled.current || !visible || !renderReady || arrival !== 'done' || moving || paused || focus || cinematic) return
+    const timer = setTimeout(() => { if (!tutorialHandled.current) openTutorial() }, 700)
+    return () => clearTimeout(timer)
+  }, [visible, renderReady, arrival, moving, paused, focus, cinematic, openTutorial])
+  useEffect(() => {
+    if (!tutorialOpen) return
+    if (!moving && arrivedSerial === request.serial) setTutorialStep(value => advanceTutorial(value, { type: 'arrived', area: request.area }))
+    if (focus?.phase === 'reading') setTutorialStep(value => advanceTutorial(value, { type: 'reading', stage: focus.request.stage }))
+    if (!focus) setTutorialStep(value => advanceTutorial(value, { type: 'returned' }))
+  }, [tutorialOpen, moving, arrivedSerial, request, focus])
+  const tutorialGesture = useCallback((kind: TutorialGesture) => {
+    if (tutorialActive.current) setTutorialStep(value => advanceTutorial(value, { type: 'gesture', kind }))
+  }, [])
+  const locateMagazine = useCallback(() => navigate('veranda'), [navigate])
   useEffect(() => {
     if (!settingsOpen) return
     const close = (event: KeyboardEvent) => { if (event.key === 'Escape') setSettingsOpen(false) }
     document.addEventListener('keydown', close)
     return () => document.removeEventListener('keydown', close)
   }, [settingsOpen])
-  const handleMoving = useCallback((value: boolean, fading = false) => { setMoving(value); setCut(value && fading) }, [])
+  const handleMoving = useCallback((value: boolean, fading = false) => { setMoving(value); setCut(value && fading); if (!value) setSettledSerial(requestRef.current.serial) }, [])
   const handleInteract = useCallback(() => { setExplored(true) }, [])
   const handleOverview = useCallback(() => navigate('overview'), [navigate])
   const ready = useCallback((value: THREE.Group) => setModel(value), [])
   const discover = useCallback((id: string) => setDiscoveries(found => found.includes(id) ? found : [...found, id]), [])
-  const openGuide = useCallback(() => { if (!focusState.current) setGuideOpen(true) }, [])
+  const openGuide = useCallback(() => { if (!focusState.current) { if (tutorialActive.current) closeTutorial(); setCinematic(null); setGuideOpen(true) } }, [closeTutorial])
   const read = useCallback((value: ReadRequest) => {
     if (focusState.current || !visible || moving || paused) return
     opener.current = document.activeElement instanceof HTMLElement ? document.activeElement : null
@@ -289,6 +320,8 @@ export default function IslandScene({ visible, sceneRevealed = visible, suspende
     if (!focus && opener.current) {
       const target = opener.current
       opener.current = null
+      // The live lesson focuses its actual target (including a recovery action).
+      if (tutorialActive.current) return
       const frame = requestAnimationFrame(() => {
         if (target.isConnected) target.focus({ preventScroll: true })
         if (document.activeElement !== target) shell.current?.querySelector<HTMLElement>('.area-read, canvas')?.focus({ preventScroll: true })
@@ -326,12 +359,13 @@ export default function IslandScene({ visible, sceneRevealed = visible, suspende
         return
       }
       event.preventDefault(); event.stopPropagation()
+      if (state.cinematic) stopCinematic()
       const direction = sectionScroll.current.push({ deltaX: event.deltaX, deltaY: event.deltaY, deltaMode: event.deltaMode, time: performance.now() })
       if (direction) step(direction)
     }
     element.addEventListener('wheel', wheel, { passive: false, capture: true })
     return () => element.removeEventListener('wheel', wheel, true)
-  }, [step])
+  }, [step, stopCinematic])
   useEffect(() => {
     setMapOpen(window.innerWidth >= 1100)
     const mobileQuery = window.matchMedia(MOBILE_GRAPHICS_QUERY)
@@ -346,23 +380,32 @@ export default function IslandScene({ visible, sceneRevealed = visible, suspende
     }
   }, [])
 
-  return <div ref={shell} data-arrival={arrival} data-scene-ready={renderReady} data-reading-phase={focus?.phase || 'idle'} data-shadows={shadowsEnabled ? mobile ? '1024' : '2048' : 'off'} data-postprocessing={!mobile && model && !paused ? 'on' : 'off'} className={`exploration-shell ${dusk ? 'is-dusk' : ''} ${focus ? 'is-focusing-artifact' : ''}`}>
+  const tutorialCoach = <IslandTutorial step={tutorialStep} mobile={mobile} reduced={reduced}
+    busy={moving || settledSerial !== request.serial || Boolean(focus && focus.phase !== 'reading')}
+    needsVeranda={request.area !== 'overview'} returnToLesson={Boolean(hasReading && tutorialStep !== 'return')}
+    needsMagazine={request.area !== 'veranda' || !tutorialBookVisible} targetRef={tutorialTarget}
+    onClose={closeTutorial} onLocateMagazine={locateMagazine} />
+
+  return <div ref={shell} data-weather={weatherKind} data-weather-quality={mobile ? weatherLowQuality ? 'light' : 'mobile' : 'full'} data-arrival={arrival} data-scene-ready={renderReady} data-reading-phase={focus?.phase || 'idle'} data-shadows={shadowsEnabled ? mobile ? '1024' : '2048' : 'off'} data-postprocessing={!mobile && model && !paused ? 'on' : 'off'} className={`exploration-shell ${dusk ? 'is-dusk' : ''} ${focus ? 'is-focusing-artifact' : ''} ${cinematic ? 'is-cinematic' : ''}`}>
     <div ref={sceneLayer} className={`island-scene ${sceneRevealed ? 'island-scene--ready' : ''} ${cut ? 'is-changing-view' : ''}`}>
       <SceneBoundary onRead={openGuide} onError={onLoadError}>
         <Canvas shadows={shadowsEnabled ? SOFT_SHADOWS : false} events={islandEvents} dpr={mobile ? 1 : [1, 1.5]} frameloop={paused || !gpuPrepared ? 'never' : !visible || reduced ? 'demand' : 'always'} camera={{ fov: 45, near: .1, far: 260, position: [25, 17, 23] }} gl={{ antialias: true, alpha: false, powerPreference: 'high-performance', toneMapping: THREE.ACESFilmicToneMapping, toneMappingExposure: 1, outputColorSpace: THREE.SRGBColorSpace }} fallback={<RendererFallback />}>
-          <IslandDayCycle cycle={cycle} dusk={dusk} reduced={reduced} paused={paused || Boolean(focus)} />
-          <IslandSky cycle={cycle} reduced={reduced} paused={paused || Boolean(focus)} />
-          <IslandLighting model={model} mobile={mobile} cycle={cycle} shadows={shadowsEnabled} />
-          {model && <IslandWater model={model} cycle={cycle} reduced={reduced} paused={paused || Boolean(focus)} mobile={mobile} />}
+          <IslandWeatherDriver weather={weather} kind={weatherKind} reduced={reduced} paused={!visible || paused || Boolean(focus)} mobile={mobile} budgetActive={visible && renderReady && arrival === 'done' && !moving && !focus} onSlow={lowerWeatherQuality} />
+          <IslandDayCycle weather={weather} cycle={cycle} dusk={dusk} reduced={reduced} paused={paused || Boolean(focus)} />
+          <IslandSky weather={weather} cycle={cycle} reduced={reduced} paused={paused || Boolean(focus)} />
+          <IslandLighting weather={weather} model={model} mobile={mobile} cycle={cycle} shadows={shadowsEnabled} />
+          {model && <IslandWater weather={weather} model={model} cycle={cycle} reduced={reduced} paused={paused || Boolean(focus)} mobile={mobile} />}
           {arrival !== 'done' && <ArrivalClouds />}
           <Suspense fallback={null}>
-            <DaylightAtmosphere cycle={cycle} reduced={reduced} paused={paused || Boolean(focus)} />
-            <LivingIsland reduced={reduced} paused={paused || Boolean(focus)} cycle={cycle} mobile={mobile} onDiscover={discover} onReady={ready} />
-            <WorldArtifacts model={model} cuesEnabled={visible && !paused && !focus && arrival === 'done'} mobile={mobile} activeArea={request.area} onRead={read} onNavigate={navigate} reduced={reduced || Boolean(focus)} enabled={visible && !moving} />
+            <DaylightAtmosphere weather={weather} cycle={cycle} reduced={reduced} paused={paused || Boolean(focus)} />
+            <LivingIsland weather={weather} reduced={reduced} paused={paused || Boolean(focus)} cycle={cycle} mobile={mobile} onDiscover={discover} onReady={ready} />
+            <WorldArtifacts model={model} cuesEnabled={visible && !paused && !focus && !cinematic && arrival === 'done'} mobile={mobile} activeArea={request.area} onRead={read} onNavigate={navigate} reduced={reduced || Boolean(focus)} enabled={visible && !moving && !cinematic} />
           </Suspense>
+          {model && <IslandRain model={model} weather={weather} cycle={cycle} mobile={mobile} reduced={reduced} paused={!visible || paused || Boolean(focus)} lowQuality={weatherLowQuality} preparing={!renderReady} />}
           <PhoneShadowBudget active={mobile && shadowsEnabled && visible && !paused && !reduced && Boolean(model) && arrival === 'done'} onSlow={disablePhoneShadows} />
-          {!mobile && model && <Suspense fallback={null}><IslandPostprocessing enabled={!paused} preparing={!renderReady} overview={request.area === 'overview' && !moving && !focus && arrival === 'done'} cycle={cycle} reduced={reduced} onReady={pipelinePrepared} /></Suspense>}
-          <IslandControls arrival={arrival} onArrivalStart={startArrival} onArrivalEnd={finishArrival} request={request} zoom={zoom} focus={focus} model={model} reduced={reduced} enabled={visible && !paused} onMoving={handleMoving} onInteract={handleInteract} onOverview={handleOverview} onSectionStep={step} onFocusArrive={focusArrived} onFocusReturn={focusReturned} />
+          {!mobile && model && <Suspense fallback={null}><IslandPostprocessing enabled={!paused} preparing={!renderReady} overview={request.area === 'overview' && !moving && !focus && !cinematic && arrival === 'done'} cycle={cycle} reduced={reduced} onReady={pipelinePrepared} /></Suspense>}
+          <IslandControls arrival={arrival} onArrivalStart={startArrival} onArrivalEnd={finishArrival} request={request} zoom={zoom} focus={focus} model={model} reduced={reduced} enabled={visible && !paused} onMoving={handleMoving} onAreaArrive={setArrivedSerial} onInteract={handleInteract} onOverview={handleOverview} onSectionStep={step} onFocusArrive={focusArrived} onFocusReturn={focusReturned} cinematic={cinematic} onCinematicEnd={stopCinematic} onCinematicMinute={cinematicMinute} onExploreGesture={tutorialGesture} />
+          <TutorialTarget active={tutorialOpen && tutorialStep === 'open' && !focus && !moving && request.area === 'veranda'} model={model} mobile={mobile} reduced={reduced} target={tutorialTarget} onVisible={setTutorialBookVisible} />
           <SceneReadiness available={Boolean(model) && (mobile || pipelineReady) && !active && !paused} renderTarget={mobile ? null : pipelineTarget} onCompiled={shadersPrepared} onReady={scenePrepared} onError={onLoadError} />
         </Canvas>
       </SceneBoundary>
@@ -371,11 +414,12 @@ export default function IslandScene({ visible, sceneRevealed = visible, suspende
       <div className="explore-vignette" aria-hidden="true" />
       <header className="explore-header">
         {(request.area !== 'overview' || explored) && <h1 className="sr-only">Tarosh Mathuria — island portfolio</h1>}
-        <button className="explore-brand" onClick={handleOverview} aria-label="Tarosh Mathuria — whole island"><svg className="brand-star" width="30" height="30" viewBox="0 0 30 30" fill="none" aria-hidden="true"><path d="M15 2v26M2 15h26M6 6l18 18M6 24 24 6" stroke="currentColor" strokeWidth="1.3" /></svg><span>TM<span>A PERSONAL ISLAND</span></span></button>
+        <button className="explore-brand" onClick={handleOverview} aria-label="Tarosh Mathuria — whole island"><BrandLogo responsive decorative /></button>
         <nav className="explore-nav" aria-label="Portfolio places">{QUICK_LINKS.map(link => <button key={link.area} onClick={() => navigate(link.area)} aria-current={request.area === link.area ? 'location' : undefined}>{link.label}</button>)}</nav>
-        <div className="explore-header-actions"><button className="explore-guide" onClick={openGuide}><svg width="16" height="16" viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d="M4 3h12v14H4zM7 3v14m3-10h3m-3 3h3" stroke="currentColor" /></svg><span>Field guide</span></button>
+        <div className="explore-header-actions"><CinematicTourControl active={Boolean(cinematic)} disabled={reduced || arrival !== 'done'} onToggle={toggleCinematic} /><button className="explore-guide" aria-label="Field guide" onClick={openGuide}><svg width="16" height="16" viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d="M4 3h12v14H4zM7 3v14m3-10h3m-3 3h3" stroke="currentColor" /></svg><span>Field guide</span></button>
           <button className="island-settings-toggle" aria-label="Island settings" aria-expanded={settingsOpen} aria-controls="island-settings" onClick={() => { setSettingsOpen(value => !value); setMapOpen(false) }}><svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M4 7h16M4 17h16" stroke="currentColor" strokeWidth="1.5"/><circle cx="9" cy="7" r="3" fill="#234b43" stroke="currentColor"/><circle cx="16" cy="17" r="3" fill="#234b43" stroke="currentColor"/></svg></button></div>
       </header>
+      <p className="cinema-notice" role="status">{cinematicNotice}</p>
       {request.area === 'overview' && !explored && <section className="explore-welcome" aria-label="Welcome to Tarosh’s island">
         <p className="explore-eyebrow">BACKEND ENGINEER. CURIOUS BY NATURE.</p>
         <h1 aria-label="Tarosh Mathuria."><span className="welcome-word" aria-hidden="true">{Array.from('Tarosh').map((letter, index) => <span className="welcome-letter" key={index} style={{ '--letter-index': index } as CSSProperties}>{letter}</span>)}</span>{' '}<em aria-hidden="true">{Array.from('Mathuria.').map((letter, index) => <span className="welcome-letter" key={index} style={{ '--letter-index': index + 6 } as CSSProperties}>{letter}</span>)}</em></h1>
@@ -390,30 +434,32 @@ export default function IslandScene({ visible, sceneRevealed = visible, suspende
       <IslandAtlas active={request.area} open={mapOpen} onToggle={() => { setMapOpen(value => !value); setSettingsOpen(false) }} onNavigate={navigate} />
       <div className="explore-zoom" role="group" aria-label="Island zoom">
         <button onClick={() => changeZoom(-1)} aria-label="Zoom out">−</button>
-        <button onClick={() => changeZoom(1)} aria-label="Zoom in">+</button>
+        <button data-tutorial-target="zoom" onClick={() => changeZoom(1)} aria-label="Zoom in">+</button>
       </div>
+      <WeatherControl value={weatherKind} onChange={setWeatherKind} disabled={arrival !== 'done'} onOpen={() => { setSettingsOpen(false); setMapOpen(false); if (tutorialOpen) closeTutorial() }} />
       <div className="explore-discoveries">
         <button className="discovery-toggle" onClick={() => setDiscoveryHelp(value => !value)} aria-expanded={discoveryHelp} aria-controls="discovery-hint"><span aria-hidden="true">✧</span><span>Little discoveries</span><strong>{discoveries.length}/7</strong></button>
         <p id="discovery-hint" hidden={!discoveryHelp}>{discoveries.length === 7 ? 'You found all seven little Nessies. Thanks for taking the long way around.' : 'Seven little green Nessies are tucked around the island. Tap one when you spot it. There’s one near the veranda table.'}</p>
         <span className="sr-only" role="status">{discoveries.length ? `${discoveries.length} of 7 little Nessies discovered.` : ''}</span>
       </div>
       <footer className="explore-footer">
-        <div id="island-settings" className={`explore-tools ${settingsOpen ? 'is-open' : ''}`}><SoundControl /><button className="explore-tool" aria-pressed={dusk} onClick={() => setDusk(value => !value)}><span aria-hidden="true">{dusk ? '☾' : '☀'}</span><span>{dusk ? 'Dusk' : 'Daylight'}</span></button><button className="explore-tool motion-tool" aria-label="Reduce motion" aria-pressed={reduced} disabled={systemReduced} onClick={() => setStill(value => !value)}><span aria-hidden="true">{reduced ? '−' : '≈'}</span><span>{reduced ? 'Still' : 'Motion'}</span></button></div>
+        <div id="island-settings" className={`explore-tools ${settingsOpen ? 'is-open' : ''}`}><IslandSound weather={weather} paused={paused || Boolean(focus)} reduced={reduced} /><button className="explore-tool" aria-pressed={dusk} onClick={() => setDusk(value => !value)}><span aria-hidden="true">{dusk ? '☾' : '☀'}</span><span>{dusk ? 'Dusk' : 'Daylight'}</span></button><button className="explore-tool motion-tool" aria-label="Reduce motion" aria-pressed={reduced} disabled={systemReduced} onClick={() => setStill(value => !value)}><span aria-hidden="true">{reduced ? '−' : '≈'}</span><span>{reduced ? 'Still' : 'Motion'}</span></button><button className="explore-tool tutorial-replay" aria-label="How to explore" onClick={openTutorial}><span aria-hidden="true">?</span><span>How to explore</span></button></div>
         <div className="explore-tour">
           <button onClick={() => step(-1)} aria-label="Previous section">←</button>
           <span>{sectionIndex === 0 ? 'WELCOME' : `${sectionIndex} / ${TOUR.length}`}<span>{mobile ? 'Tap arrows to explore' : sectionIndex === 0 ? 'Scroll to explore' : 'Island wander'}</span></span>
-          <button onClick={() => step(1)} aria-label="Next section">→</button>
+          <button data-tutorial-target="next" onClick={() => step(1)} aria-label="Next section">→</button>
         </div>
-        <p className="explore-input-hint" id="island-controls-help"><span>Scroll to change sections · Drag to explore</span><span>{area.read || request.area === 'beach' ? 'Tap a glowing + to open' : 'Drag to look · Pinch to zoom'}</span><span className="sr-only">Use the arrows for sections and the plus and minus buttons or pinch to zoom. Focus the island and use Page Up and Page Down for sections, arrow keys to orbit, plus or minus to zoom, and Home for the whole island.</span></p>
+        <p className="explore-input-hint" id="island-controls-help"><span>Scroll to change sections · Drag to explore</span><span>{area.read || request.area === 'beach' ? 'Tap the glow to open' : 'Drag to look · Pinch to zoom'}</span><span className="sr-only">Use the arrows for sections and the plus and minus buttons or pinch to zoom. Focus the island and use Page Up and Page Down for sections, arrow keys to orbit, plus or minus to zoom, and Home for the whole island.</span></p>
       </footer>
-      <div className="explore-area-hint" aria-hidden="true">{!moving && request.area !== 'overview' ? `${area.hint}${area.read ? ' Click a glowing + to open.' : ''}` : ''}</div>
+      <div className="explore-area-hint" aria-hidden="true">{!moving && request.area !== 'overview' ? `${area.hint}${area.read ? ' Click the glow to open.' : ''}` : ''}</div>
     </div>}
     {visible && arrival !== 'done' && <button className="arrival-skip" onClick={finishArrival}>Arriving on the island <span aria-hidden="true">·</span> Skip intro</button>}
     {focus && !hasReading && <div className="artifact-focus-status">
       <button ref={cancelButton} onClick={closeReader} disabled={focus.phase === 'return'} aria-label="Cancel opening, back to island"><span aria-hidden="true">←</span> Back to island</button>
       <p role="status">{focus.phase === 'return' ? 'Returning to your view' : `Opening ${artifactLabel(focus.request)}`}</p>
     </div>}
+    {tutorialOpen && !hasReading && tutorialCoach}
     {guideOpen && <FieldGuide onClose={() => setGuideOpen(false)} />}
-    {focus && hasReading && <ArtifactReader request={focus.request} animated={!reduced} closing={focus.phase === 'closing'} onClose={closeReader} onExited={readerExited} restoreFocus={false} />}
+    {focus && hasReading && <ArtifactReader request={focus.request} animated={!reduced} closing={focus.phase === 'closing'} onClose={closeReader} onExited={readerExited} restoreFocus={false} tutorial={tutorialOpen ? tutorialCoach : undefined} />}
   </div>
 }

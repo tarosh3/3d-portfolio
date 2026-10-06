@@ -17,12 +17,13 @@ const guard = { clear(from, to, margin) {
 const cue = createArtifactBeacon(), first = cue.state
 const update = (active = true, reduced = false) => cue.update(camera, point, 390, 844, active, reduced, 1 / 60, guard, true)
 assert.equal(update().visible, true)
-assert.ok(first.opacity > 0 && first.opacity < .84, 'reveal must ease in')
 const originalProject = THREE.Vector3.prototype.clone
 THREE.Vector3.prototype.clone = () => { throw Error('allocated a vector in the frame loop') }
-try { for (let i = 0; i < 120; i++) assert.equal(update(), first, 'frame result must be reused') }
+try { for (let i = 0; i < 180; i++) {
+  assert.equal(update(), first, 'frame result must be reused')
+} }
 finally { THREE.Vector3.prototype.clone = originalProject }
-assert.ok(checks <= 18, `visibility raycast every frame (${checks} checks)`) 
+assert.ok(checks <= 27, `visibility raycast every frame (${checks} checks)`)
 const view = point.clone().applyMatrix4(camera.matrixWorldInverse)
 assert.ok(Math.abs(first.scale * camera.projectionMatrix.elements[5] / (-2 * view.z) * 844 - 48) < 1e-8)
 assert.equal(first.labelVisible, false, 'phones must not mount floating HTML labels')
@@ -32,11 +33,11 @@ assert.equal(first.visible, false, 'occluded invitations must disappear')
 clear = true
 update(true, true)
 assert.equal(first.visible, true, 'a single Still demand frame must update occlusion')
-const stillOpacity = first.opacity, stillScale = first.scale
+const stillScale = first.scale
 for (let i = 0; i < 90; i++) update(true, true)
-assert.equal(first.opacity, stillOpacity); assert.equal(first.scale, stillScale)
+assert.equal(first.scale, stillScale)
 update(false)
-assert.equal(first.visible, false); assert.equal(first.opacity, 0)
+assert.equal(first.visible, false); assert.equal(first.labelVisible, false)
 update(true, true)
 point.set(0, 4, 20)
 assert.equal(update(true, true).visible, false, 'behind-camera cue must not be clickable')
@@ -73,4 +74,4 @@ for (const [width, height] of [[1280, 720], [390, 844], [320, 568], [844, 390]])
     visible++
   }
 }
-console.log(`Artifact invitations passed: ${visible} real-model views, fixed 48px targets, bounded raycasts, occlusion, frame reuse, reveal, inactive state and Still`)
+console.log(`Artifact invitations passed: ${visible} real-model views, fixed 48px targets, bounded raycasts, occlusion, frame reuse, inactive state and Still`)

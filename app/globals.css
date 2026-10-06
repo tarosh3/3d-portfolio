@@ -1,6 +1,10 @@
 @import './components/exploration.css';
 @import './components/artifact-reader.css';
 @import './components/loading-screen.css';
+@import './components/cinematic-tour.css';
+@import './components/brand.css';
+@import './components/island-tutorial.css';
+@import './components/island-weather.css';
 @tailwind base;
 @tailwind components;
 @tailwind utilities;

@@ -6,11 +6,12 @@ import * as THREE from 'three'
 import { attachSandCaustics, createIslandWater } from './island-water'
 import { WATER_LEVEL } from './water-depth'
 import type { DayCycle } from './day-cycle'
+import type { IslandWeather } from './island-weather'
 
 const ignoreRaycast = () => {}
 
-export default function IslandWater({ model, cycle, reduced, paused, mobile }: {
-  model: THREE.Group; cycle: DayCycle; reduced: boolean; paused: boolean; mobile: boolean
+export default function IslandWater({ model, cycle, weather, reduced, paused, mobile }: {
+  model: THREE.Group; cycle: DayCycle; weather?: IslandWeather; reduced: boolean; paused: boolean; mobile: boolean
 }) {
   const water = useMemo(() => createIslandWater(model), [model])
   const invalidate = useThree(state => state.invalidate)
@@ -22,8 +23,8 @@ export default function IslandWater({ model, cycle, reduced, paused, mobile }: {
   }, [water, mobile, invalidate])
   useEffect(() => () => water.dispose(), [water])
   useFrame((_, delta) => {
-    water.setPalette(cycle.value)
-    water.update(delta, reduced, paused)
+    water.setPalette(cycle.value, weather)
+    water.update(delta, reduced, paused, weather)
   })
   return <mesh name="Island ocean" material={water.material} rotation={[-Math.PI / 2, 0, 0]} position={[0, WATER_LEVEL, 0]} raycast={ignoreRaycast} renderOrder={-10}>
     {/* All movement is in the normals: two triangles on desktop and phone. */}

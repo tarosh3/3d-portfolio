@@ -1,5 +1,5 @@
 /* Repeating animation uses compositor-friendly HTML transforms and opacity.
-   The loader has no JavaScript animation loop and downloads no artwork. */
+   The loader has no JavaScript animation loop; its small brand image is preloaded. */
 .island-loader {
   position: fixed; inset: 0; z-index: 1000; display: flex; flex-direction: column;
   padding: clamp(24px, 4vw, 64px); overflow: auto; background: var(--sea-deep);

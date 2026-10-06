@@ -9,11 +9,14 @@ import { createCameraGuard, pathDistance, pointOnPath, type CameraGuard } from '
 import { artifactPose, type ArtifactFocus } from './artifact-camera'
 import { motionEase, orientPose, reverseTravelledPath, sampleArtifactMotion, type CameraSnapshot } from './artifact-motion'
 import { ARRIVAL_SECONDS, arrivalRoute, type ArrivalPhase } from './island-arrival'
+import type { TutorialGesture } from './island-tutorial'
+import { CINEMATIC_ATMOSPHERE_SECONDS, cinematicTravelTime, createCinematicPath, type CinematicPath } from './cinematic-path'
 
 type Flight = { points: THREE.Vector3[] | null; distance: number; sourceTarget: THREE.Vector3; target: THREE.Vector3; destination: THREE.Vector3; sourceFov: number; targetFov: number; elapsed: number; duration: number }
 const limitKeys = ['minDistance', 'maxDistance', 'minPolarAngle', 'maxPolarAngle', 'minAzimuthAngle', 'maxAzimuthAngle'] as const
 type FocusFlight = { serial: number; original: CameraSnapshot; from: CameraSnapshot; to: CameraSnapshot; output: CameraSnapshot; points: THREE.Vector3[]; distance: number; travelled: number; elapsed: number; duration: number; phase: 'approach' | 'hold' | 'return' | 'done'; limits: Record<typeof limitKeys[number], number> }
-type Props = { arrival: ArrivalPhase; onArrivalStart: () => void; onArrivalEnd: () => void; request: { area: AreaId; serial: number }; zoom: { direction: number; serial: number }; focus: ArtifactFocus | null; model: THREE.Group | null; reduced: boolean; enabled: boolean; onMoving: (moving: boolean, cut?: boolean) => void; onInteract: () => void; onOverview: () => void; onSectionStep: (direction: number) => void; onFocusArrive: () => void; onFocusReturn: () => void }
+type Props = { arrival: ArrivalPhase; onArrivalStart: () => void; onArrivalEnd: () => void; request: { area: AreaId; serial: number }; zoom: { direction: number; serial: number }; focus: ArtifactFocus | null; model: THREE.Group | null; reduced: boolean; enabled: boolean; onMoving: (moving: boolean, cut?: boolean) => void; onAreaArrive?: (serial: number) => void; onInteract: () => void; onOverview: () => void; onSectionStep: (direction: number) => void; onFocusArrive: () => void; onFocusReturn: () => void; cinematic?: { serial: number; seed: number } | null; onCinematicEnd?: (unavailable?: boolean) => void; onCinematicMinute?: () => void; onExploreGesture?: (gesture: TutorialGesture) => void }
+type CinematicFlight = { serial: number; path: CinematicPath; entry: Flight; elapsed: number; minute: number; target: THREE.Vector3; cruising: boolean }
 const ease = (t: number) => t * t * t * (t * (t * 6 - 15) + 10)
 
 // OrbitControls keeps drag velocity internally. Drain it without moving the
@@ -25,6 +28,13 @@ function clearMomentum(controls: OrbitControls, camera: THREE.Camera) {
   controls.update()
   camera.position.copy(position); controls.target.copy(target)
   camera.quaternion.copy(quaternion)
+}
+
+function releaseCinematicOrbit(controls: OrbitControls, camera: THREE.Camera) {
+  const radius = camera.position.distanceTo(controls.target)
+  controls.minDistance = Math.max(1, radius * .4); controls.maxDistance = Math.max(70, radius + 1)
+  controls.minPolarAngle = .05; controls.maxPolarAngle = 1.5
+  controls.minAzimuthAngle = -Infinity; controls.maxAzimuthAngle = Infinity
 }
 
 export default function IslandControls(props: Props) {
@@ -40,9 +50,15 @@ export default function IslandControls(props: Props) {
   const lastZoom = useRef(0)
   const zoomRadius = useRef<number | null>(null)
   const zoomOffset = useRef(new THREE.Vector3())
+  const gesture = useRef<'pointer' | TutorialGesture | null>(null)
+  const gestureDirection = useRef(new THREE.Vector3())
+  const gestureOffset = useRef(new THREE.Vector3())
+  const gestureRadius = useRef(0)
   const interactRef = useRef<(() => void) | null>(null)
   const arrivalFlight = useRef<(Flight & { started: boolean }) | null>(null)
   const arrivalHandled = useRef(false)
+  const cinematicFlight = useRef<CinematicFlight | null>(null)
+  const aspect = useRef(size.width / size.height); aspect.current = size.width / size.height
   const zoomScale = () => cameraScale(size.width / size.height)
 
   useEffect(() => {
@@ -65,7 +81,9 @@ export default function IslandControls(props: Props) {
     const interact = () => {
       if (!latest.current.enabled) return
       if (latest.current.focus || latest.current.arrival !== 'done') return
+      if (latest.current.cinematic) latest.current.onCinematicEnd?.()
       zoomRadius.current = null
+      gesture.current = null
       if (flight.current) {
         flight.current = null
         const radius = camera.position.distanceTo(controls.target)
@@ -81,10 +99,26 @@ export default function IslandControls(props: Props) {
       invalidate()
     }
     interactRef.current = interact
+    const takeOver = () => {
+      if (!cinematicFlight.current || !latest.current.enabled) return
+      cinematicFlight.current = null
+      releaseCinematicOrbit(controls, camera)
+      previous.current.copy(camera.position)
+      controls.enabled = true
+      latest.current.onMoving(false)
+      latest.current.onCinematicEnd?.()
+    }
     // Section scrolling is handled by the shell. Keep OrbitControls' touch
     // pinch support, but never let its wheel listener turn scrolling into zoom.
     const stopWheelZoom = (event: WheelEvent) => event.stopImmediatePropagation()
     const changed = () => invalidate()
+    const beginGesture = () => {
+      interact()
+      if (!latest.current.enabled || latest.current.focus) return
+      gesture.current = 'pointer'
+      gestureRadius.current = camera.position.distanceTo(controls.target)
+      gestureDirection.current.subVectors(camera.position, controls.target).normalize()
+    }
     const keyboard = (event: KeyboardEvent) => {
       if (!latest.current.enabled || latest.current.focus) return
       if (event.ctrlKey || event.metaKey || event.altKey) return
@@ -93,7 +127,10 @@ export default function IslandControls(props: Props) {
       }
       if (event.key === 'Home') { event.preventDefault(); latest.current.onOverview(); return }
       if (!['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', '+', '=', '-', '_'].includes(event.key)) return
-      event.preventDefault(); interact()
+      event.preventDefault(); takeOver(); interact()
+      gesture.current = event.key.startsWith('Arrow') ? 'orbit' : 'zoom'
+      gestureRadius.current = camera.position.distanceTo(controls.target)
+      gestureDirection.current.subVectors(camera.position, controls.target).normalize()
       const offset = camera.position.clone().sub(controls.target)
       const spherical = new THREE.Spherical().setFromVector3(offset)
       if (event.key === 'ArrowLeft') spherical.theta -= .09
@@ -105,23 +142,60 @@ export default function IslandControls(props: Props) {
       camera.position.copy(controls.target).add(offset.setFromSpherical(spherical))
       controls.update(); invalidate()
     }
-    controls.addEventListener('start', interact)
+    controls.addEventListener('start', beginGesture)
     controls.addEventListener('change', changed)
     gl.domElement.addEventListener('keydown', keyboard)
+    gl.domElement.addEventListener('pointerdown', takeOver, { capture: true })
     gl.domElement.addEventListener('wheel', stopWheelZoom, { capture: true, passive: true })
     return () => {
-      controls.removeEventListener('start', interact); controls.removeEventListener('change', changed)
+      controls.removeEventListener('start', beginGesture); controls.removeEventListener('change', changed)
       gl.domElement.removeEventListener('keydown', keyboard)
+      gl.domElement.removeEventListener('pointerdown', takeOver, true)
       gl.domElement.removeEventListener('wheel', stopWheelZoom, true)
       controls.dispose(); control.current = null; interactRef.current = null
     }
   }, [camera, gl, invalidate])
+  useEffect(() => { gesture.current = null }, [props.request.serial, props.focus, props.cinematic, props.enabled])
   useEffect(() => {
     const controls = control.current
     if (!controls) return
-    controls.enabled = props.enabled && !props.focus && props.arrival === 'done'
+    controls.enabled = props.enabled && !props.focus && !props.cinematic && props.arrival === 'done'
     if (!controls.enabled || props.reduced) clearMomentum(controls, camera)
-  }, [camera, props.enabled, props.focus, props.reduced, props.arrival])
+  }, [camera, props.enabled, props.focus, props.reduced, props.arrival, props.cinematic])
+
+  useEffect(() => {
+    const controls = control.current
+    if (!controls) return
+    if (!props.cinematic || props.reduced) {
+      if (cinematicFlight.current) {
+        cinematicFlight.current = null
+        previous.current.copy(camera.position)
+        // Hand back this exact view. Area limits from an earlier close-up must
+        // not clamp the film's camera position or restart its old area flight.
+        releaseCinematicOrbit(controls, camera)
+        latest.current.onMoving(false)
+      }
+      if (props.cinematic && props.reduced) latest.current.onCinematicEnd?.()
+      return
+    }
+    const safety = guard.current
+    const path = safety && createCinematicPath(safety, props.cinematic.seed, aspect.current, { position: camera.position, target: controls.target })
+    const destination = new THREE.Vector3(), target = new THREE.Vector3()
+    path?.sample(0, destination, target)
+    const points = path?.anchored ? [camera.position.clone()] : path && safety?.route(camera.position, destination)
+    if (!path || !points) { latest.current.onCinematicEnd?.(true); return }
+    clearMomentum(controls, camera)
+    flight.current = null; zoomRadius.current = null
+    const distance = pathDistance(points), fov = camera instanceof THREE.PerspectiveCamera ? camera.fov : cameraFov(aspect.current)
+    cinematicFlight.current = {
+      serial: props.cinematic.serial, path, elapsed: 0, minute: 0, target: new THREE.Vector3(), cruising: path.anchored,
+      entry: { points, distance, sourceTarget: controls.target.clone(), target, destination, sourceFov: fov, targetFov: cameraFov(aspect.current), elapsed: 0, duration: Math.min(5.5, Math.max(2.5, distance / 9)) },
+    }
+    controls.enabled = false
+    last.current = latest.current.request.serial
+    latest.current.onMoving(true)
+    invalidate()
+  }, [camera, invalidate, props.cinematic, props.reduced, props.model])
 
   const frameArea = (area: IslandArea) => {
     const target = new THREE.Vector3(...area.target)
@@ -173,6 +247,9 @@ export default function IslandControls(props: Props) {
         // Let that request travel normally from the overview on the next frame.
         last.current = props.request.area === 'overview' ? signature : -1
         arrivalFlight.current = null; arrivalHandled.current = true
+        // Skipping the intro can already have requested another destination.
+        // Reaching overview must not acknowledge that later area's request.
+        if (props.request.area === 'overview') props.onAreaArrive?.(signature)
         props.onArrivalEnd(); props.onMoving(false); invalidate()
       }
       if (props.arrival === 'done' || props.reduced || props.request.area !== 'overview') {
@@ -208,6 +285,35 @@ export default function IslandControls(props: Props) {
         invalidate()
         return
       }
+    }
+    const cinema = cinematicFlight.current
+    if (cinema && props.cinematic && !props.reduced) {
+      if (!props.enabled) return
+      controls.enabled = false
+      const dt = Math.min(Math.max(delta, 0), .05)
+      cinema.elapsed += dt
+      const minute = Math.floor(cinema.elapsed / CINEMATIC_ATMOSPHERE_SECONDS)
+      if (minute > cinema.minute) { cinema.minute = minute; props.onCinematicMinute?.() }
+      const entry = cinema.entry
+      if (!cinema.cruising) {
+        entry.elapsed += dt
+        const t = Math.min(1, entry.elapsed / entry.duration), blend = ease(t)
+        pointOnPath(entry.points!, entry.distance * blend, camera.position)
+        controls.target.lerpVectors(entry.sourceTarget, entry.target, blend)
+        if (camera instanceof THREE.PerspectiveCamera) camera.fov = THREE.MathUtils.lerp(entry.sourceFov, cameraFov(size.width / size.height), blend)
+        if (t === 1) cinema.cruising = true
+      } else {
+        const time = cinematicTravelTime(cinema.elapsed - entry.elapsed)
+        cinema.path.sample(time / cinema.path.duration, camera.position, cinema.target)
+        controls.target.copy(cinema.target)
+        if (camera instanceof THREE.PerspectiveCamera) camera.fov = THREE.MathUtils.damp(camera.fov, cameraFov(size.width / size.height), 5, dt)
+      }
+      camera.up.set(0, 1, 0); camera.lookAt(controls.target)
+      if (camera instanceof THREE.PerspectiveCamera) camera.updateProjectionMatrix()
+      previous.current.copy(camera.position)
+      // OrbitControls.update would clamp the cinematic path to the previous
+      // area's orbit limits. Only this branch owns the camera during the film.
+      return
     }
     if (props.focus) {
       if (!props.enabled) return
@@ -291,6 +397,7 @@ export default function IslandControls(props: Props) {
         if (camera instanceof THREE.PerspectiveCamera) { camera.fov = targetFov; camera.updateProjectionMatrix() }
         controls.update(); previous.current.copy(camera.position); limits(area)
         flight.current = null; props.onMoving(false)
+        props.onAreaArrive?.(signature)
       } else {
         flight.current = { points, distance, sourceTarget: controls.target.clone(), target, destination, sourceFov: camera instanceof THREE.PerspectiveCamera ? camera.fov : targetFov, targetFov, elapsed: 0, duration: points ? Math.min(4, Math.max(.9, distance / 15)) : .45 }
         props.onMoving(true, !points)
@@ -302,6 +409,9 @@ export default function IslandControls(props: Props) {
       lastZoom.current = props.zoom.serial
       const radius = zoomRadius.current ?? camera.position.distanceTo(controls.target)
       interactRef.current?.()
+      gesture.current = 'zoom'
+      gestureRadius.current = camera.position.distanceTo(controls.target)
+      gestureDirection.current.subVectors(camera.position, controls.target).normalize()
       zoomRadius.current = THREE.MathUtils.clamp(radius * (props.zoom.direction > 0 ? .88 : 1 / .88), controls.minDistance, controls.maxDistance)
       invalidate()
     }
@@ -326,6 +436,7 @@ export default function IslandControls(props: Props) {
         controls.update()
         limits(areaById(props.request.area))
         flight.current = null; props.onMoving(false)
+        props.onAreaArrive?.(signature)
       }
       previous.current.copy(camera.position)
       invalidate()
@@ -346,6 +457,16 @@ export default function IslandControls(props: Props) {
           zoomRadius.current = null
           camera.position.copy(previous.current); controls.update()
         } else previous.current.copy(camera.position)
+      }
+      // Report a real, collision-accepted change once per gesture. A click,
+      // canceled flight or camera animation must never complete a lesson.
+      if (gesture.current) {
+        const radius = camera.position.distanceTo(controls.target)
+        const zoomed = Math.abs(radius - gestureRadius.current) > Math.max(.015, gestureRadius.current * .02)
+        gestureOffset.current.subVectors(camera.position, controls.target).normalize()
+        const orbited = gestureOffset.current.dot(gestureDirection.current) < Math.cos(.025)
+        const kind = zoomed && gesture.current !== 'orbit' ? 'zoom' : orbited && gesture.current !== 'zoom' ? 'orbit' : null
+        if (kind) { gesture.current = null; props.onExploreGesture?.(kind) }
       }
       // A lens adjustment fits the new aspect without discarding an explored
       // view or routing back to the default area on every toolbar resize.

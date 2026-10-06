@@ -3,6 +3,7 @@
 import { useEffect, useId, useRef } from 'react'
 import { chapters, profile } from '../portfolio-data'
 import PortfolioContent from './PortfolioContent'
+import BrandLogo from './BrandLogo'
 
 export default function FieldGuide({ onClose }: { onClose: () => void }) {
   const dialogRef = useRef<HTMLDialogElement>(null)
@@ -49,7 +50,7 @@ export default function FieldGuide({ onClose }: { onClose: () => void }) {
         <header className="guide-header">
           <div>
             <p className="guide-eyebrow">The field guide</p>
-            <h1 id={`${id}-title`}>{profile.name}</h1>
+            <h1 className="guide-brand" id={`${id}-title`}><BrandLogo /></h1>
             <p id={`${id}-description`}>Backend engineer · {profile.location}</p>
           </div>
           <button ref={closeRef} className="guide-close" type="button" onClick={onClose} aria-label="Close field guide">

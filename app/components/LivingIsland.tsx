@@ -1,16 +1,19 @@
 'use client'
 
-import { useEffect, useMemo, useRef } from 'react'
+import { useEffect, useLayoutEffect, useMemo, useRef } from 'react'
 import { useFrame, useThree, type ThreeEvent } from '@react-three/fiber'
 import { useGLTF } from '@react-three/drei'
 import * as THREE from 'three'
 import { castsIslandShadow } from './island-rendering'
 import type { DayCycle } from './day-cycle'
+import type { IslandWeather } from './island-weather'
+import { attachIslandWetness } from './island-wetness'
 
 type Props = {
   reduced: boolean
   paused: boolean
   cycle: DayCycle
+  weather?: IslandWeather
   mobile?: boolean
   onDiscover: (id: string) => void
   onReady?: (model: THREE.Group) => void
@@ -21,9 +24,21 @@ type FishMotion = Motion & { forward: THREE.Vector3; side: THREE.Vector3; speed:
 type WindMotion = Motion & { phase: number; speed: number; strength: number }
 type Discovery = { materials: THREE.MeshStandardMaterial[]; colors: THREE.Color[]; intensities: number[] }
 type FireflyField = { geometry: THREE.BufferGeometry; base: Float32Array; phase: Float32Array; speed: Float32Array }
+type EmberMaterial = { material: THREE.MeshBasicMaterial; campfire: boolean }
 
 const UP = new THREE.Vector3(0, 1, 0)
 const NESSIE = /^Nessie\d?$/
+
+function updateParticleField(field: FireflyField, time: number, drift: number, vertical: number) {
+  const positions = field.geometry.getAttribute('position') as THREE.BufferAttribute
+  for (let i = 0; i < field.phase.length; i++) {
+    const phase = time * field.speed[i] + field.phase[i]
+    positions.array[i * 3] = field.base[i * 3] + Math.sin(phase) * drift
+    positions.array[i * 3 + 1] = field.base[i * 3 + 1] + Math.sin(phase * .63) * vertical
+    positions.array[i * 3 + 2] = field.base[i * 3 + 2] + Math.cos(phase * .81) * drift * .72
+  }
+  positions.needsUpdate = true
+}
 
 // Measured from the top vertices of all eight authored torch flames. Torch2
 // contains six torches in one baked mesh; its bounding-box center is not a flame.
@@ -191,7 +206,7 @@ function prepareIsland(source: THREE.Group) {
   return { model, ownedMaterials, lights, discoveries, fish, gulls, wind, hammock, embers }
 }
 
-export default function LivingIsland({ reduced, paused, cycle, mobile = false, onDiscover, onReady }: Props) {
+export default function LivingIsland({ reduced, paused, cycle, weather, mobile = false, onDiscover, onReady }: Props) {
   const { scene } = useGLTF('/island-optimized.glb')
   const island = useMemo(() => prepareIsland(scene), [scene])
   const { gl, invalidate } = useThree()
@@ -201,7 +216,8 @@ export default function LivingIsland({ reduced, paused, cycle, mobile = false, o
   const fireflyMaterial = useRef<THREE.PointsMaterial>(null)
   const moteMaterial = useRef<THREE.PointsMaterial>(null)
   const emberGroup = useRef<THREE.Group>(null)
-  const emberMaterials = useRef<THREE.MeshBasicMaterial[]>([])
+  const emberMaterials = useRef<EmberMaterial[]>([])
+  const wetness = useRef<ReturnType<typeof attachIslandWetness> | null>(null)
   const fireflies = useMemo<FireflyField>(() => {
     const count = mobile ? 18 : 34
     const base = new Float32Array(count * 3)
@@ -263,10 +279,16 @@ export default function LivingIsland({ reduced, paused, cycle, mobile = false, o
     onReady?.(island.model)
   }, [island, onReady])
 
+  useLayoutEffect(() => {
+    const response = attachIslandWetness(island.model)
+    wetness.current = response
+    return () => { wetness.current = null; response.dispose() }
+  }, [island])
+
   useEffect(() => {
-    const materials: THREE.MeshBasicMaterial[] = []
+    const materials: EmberMaterial[] = []
     emberGroup.current?.traverse(object => {
-      if (object instanceof THREE.Mesh && object.material instanceof THREE.MeshBasicMaterial) materials.push(object.material)
+      if (object instanceof THREE.Mesh && object.material instanceof THREE.MeshBasicMaterial) materials.push({ material: object.material, campfire: object.name === 'campfire-ember' })
     })
     emberMaterials.current = materials
   }, [island])
@@ -314,16 +336,23 @@ export default function LivingIsland({ reduced, paused, cycle, mobile = false, o
 
   useFrame((_, delta) => {
     const dusk = cycle.value
+    const rain = weather?.rain ?? 0
+    const cloud = weather?.cloud ?? 0
+    const wind = weather?.wind ?? .2
+    const gust = weather?.gust ?? 0
+    if (weather) time.current = weather.time
+    wetness.current?.update(weather?.wetness ?? 0)
     for (const material of island.lights) material.emissiveIntensity = THREE.MathUtils.lerp(.16, 1.6, dusk)
-    if (fireflyMaterial.current) fireflyMaterial.current.opacity = .82 * dusk
-    if (moteMaterial.current) moteMaterial.current.opacity = .18 * (1 - dusk)
-    for (const material of emberMaterials.current) material.opacity = .9 * dusk
+    if (fireflyMaterial.current) fireflyMaterial.current.opacity = .82 * dusk * (1 - rain * .96) * (1 - cloud * .15)
+    if (moteMaterial.current) moteMaterial.current.opacity = .18 * (1 - dusk) * (weather?.sun ?? 1) * (1 - rain)
+    const fireDamping = (1 - rain * .94) * (1 - (weather?.wetness ?? 0) * .5)
+    for (const ember of emberMaterials.current) ember.material.opacity = .9 * dusk * (ember.campfire ? fireDamping : 1 - rain * .48)
     if (emberGroup.current) emberGroup.current.visible = dusk > 0
     const flicker = reduced ? 1 : 1 + Math.sin(time.current * 3.1) * .06 + Math.sin(time.current * 7.3) * .025
-    if (fireLight.current) fireLight.current.intensity = .62 * dusk * flicker
+    if (fireLight.current) fireLight.current.intensity = .62 * dusk * flicker * fireDamping
     if (paused || reduced) return
     // Accumulated active time prevents a jump when returning from a hidden tab.
-    time.current += Math.min(delta, .05)
+    if (!weather && Number.isFinite(delta) && delta > 0) time.current += Math.min(delta, .05)
     const t = time.current
     for (const fish of island.fish) {
       const phase = t * fish.speed
@@ -333,39 +362,23 @@ export default function LivingIsland({ reduced, paused, cycle, mobile = false, o
         .addScaledVector(fish.side, (1 - Math.cos(phase)) * sideRadius)
       fish.pivot.quaternion.setFromAxisAngle(UP, Math.atan2(Math.sin(phase) * sideRadius, Math.cos(phase) * fish.radius))
     }
-    island.gulls.forEach((gull, i) => {
+    for (let i = 0; i < island.gulls.length; i++) {
+      const gull = island.gulls[i]
       const phase = (t + i * 7) % (19 + i * 4)
       const look = phase < 2.8 ? Math.sin(phase / 2.8 * Math.PI) : 0
       gull.pivot.rotation.y = look * .12 * (i ? -1 : 1)
-    })
-    island.wind.forEach(leaf => {
-      const gust = Math.sin(t * leaf.speed + leaf.phase)
+    }
+    for (const leaf of island.wind) {
+      const sway = Math.sin(t * leaf.speed + (weather?.drift ?? 0) * .12 + leaf.phase)
       const cross = Math.cos(t * leaf.speed * .73 + leaf.phase * .61)
-      leaf.pivot.rotation.x = gust * leaf.strength
-      leaf.pivot.rotation.z = cross * leaf.strength * .72
-    })
-    if (dusk) {
-      const positions = fireflies.geometry.getAttribute('position') as THREE.BufferAttribute
-      for (let i = 0; i < fireflies.phase.length; i++) {
-        const phase = t * fireflies.speed[i] + fireflies.phase[i]
-        positions.array[i * 3] = fireflies.base[i * 3] + Math.sin(phase) * .14
-        positions.array[i * 3 + 1] = fireflies.base[i * 3 + 1] + Math.sin(phase * .67) * .2
-        positions.array[i * 3 + 2] = fireflies.base[i * 3 + 2] + Math.cos(phase * .81) * .12
-      }
-      positions.needsUpdate = true
+      const bend = leaf.strength * ((wind - .2) * 1.35 + gust * .8 + sway * (.6 + wind * 1.7))
+      // Crown pivots lean with the same world-space gust that tilts rainfall.
+      leaf.pivot.rotation.x = bend * (weather?.windZ ?? .6) + cross * leaf.strength * .28
+      leaf.pivot.rotation.z = -bend * (weather?.windX ?? .8) + cross * leaf.strength * .2
     }
-    const updateField = (field: FireflyField, drift: number, vertical: number) => {
-      const positions = field.geometry.getAttribute('position') as THREE.BufferAttribute
-      for (let i = 0; i < field.phase.length; i++) {
-        const phase = t * field.speed[i] + field.phase[i]
-        positions.array[i * 3] = field.base[i * 3] + Math.sin(phase) * drift
-        positions.array[i * 3 + 1] = field.base[i * 3 + 1] + Math.sin(phase * .63) * vertical
-        positions.array[i * 3 + 2] = field.base[i * 3 + 2] + Math.cos(phase * .81) * drift * .72
-      }
-      positions.needsUpdate = true
-    }
-    if (dusk < 1) updateField(daylightMotes, .12, .16)
-    if (island.hammock) island.hammock.pivot.quaternion.setFromAxisAngle(island.hammock.axis, Math.sin(t * .65) * .035)
+    if (dusk && rain < .98) updateParticleField(fireflies, t, .14, .2)
+    if (dusk < 1 && rain < .98) updateParticleField(daylightMotes, t, .1 + wind * .12, .16)
+    if (island.hammock) island.hammock.pivot.quaternion.setFromAxisAngle(island.hammock.axis, Math.sin(t * .65) * .035 * (.7 + wind * 1.5 + gust * .25))
   })
 
   return <>
@@ -377,7 +390,7 @@ export default function LivingIsland({ reduced, paused, cycle, mobile = false, o
       <pointsMaterial ref={moteMaterial} size={.12} map={fireflyTexture} color="#fff0c6" transparent opacity={.18} depthWrite={false} sizeAttenuation toneMapped={false} blending={THREE.AdditiveBlending} />
     </points>
     <group ref={emberGroup} name="island-evening-embers">
-      {island.embers.map((position, i) => <mesh key={i} position={position} scale={[1, .32, .8]} userData={{ islandBloom: true }}>
+      {island.embers.map((position, i) => <mesh key={i} name="campfire-ember" position={position} scale={[1, .32, .8]} userData={{ islandBloom: true }}>
         <icosahedronGeometry args={[.018 + (i % 3) * .004, 0]} />
         <meshBasicMaterial color={i % 2 ? '#ed7632' : '#ffb662'} toneMapped={false} transparent opacity={0} depthWrite={false} />
       </mesh>)}

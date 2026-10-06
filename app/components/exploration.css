@@ -149,10 +149,15 @@
   .explore-tools.is-open{top:60px;right:20px;max-height:calc(100svh - 74px);overflow-y:auto;overscroll-behavior:contain}
 }
 
-/* Quiet object invitations, linked to the warm pinpoint on the real surface. */
-.artifact-marker.artifact-invitation{position:relative;pointer-events:auto;transform:translateY(-43px);min-height:36px;padding:8px 13px;gap:12px;background:var(--paper-light);color:var(--ink);border:1px solid #e2c795;border-radius:var(--radius-full);box-shadow:0 3px 14px #142f3426;font-size:11px;transition:background-color 160ms ease,border-color 160ms ease}
+/* The object itself invites exploration. Labels appear on hover or keyboard focus. */
+.artifact-marker.artifact-invitation{position:relative;pointer-events:none;opacity:0;transform:translateY(-37px);min-height:36px;padding:8px 13px;gap:12px;background:var(--paper-light);color:var(--ink);border:1px solid #e2c795;border-radius:var(--radius-full);box-shadow:0 3px 14px #142f3426;font-size:11px;transition:opacity 160ms ease,transform 160ms ease,background-color 160ms ease,border-color 160ms ease}
+.artifact-marker.artifact-invitation[data-revealed],.artifact-marker.artifact-invitation:focus-visible{opacity:1;pointer-events:auto;transform:translateY(-43px)}
+.artifact-invitation::before{content:'';position:absolute;top:100%;left:0;right:0;height:30px}
 .artifact-invitation::after{content:'';position:absolute;top:100%;left:50%;height:15px;width:1px;background:linear-gradient(var(--accent),#edbe7a00);pointer-events:none}
 .artifact-marker.artifact-invitation:hover,.artifact-marker.artifact-invitation:focus-visible{background:#ffedc8;border-color:var(--accent)}
 .artifact-marker.artifact-invitation.artifact-marker--secondary{font-size:10px;background:var(--paper)}
 .artifact-invitation.is-still{transition:none}
 @media(prefers-reduced-motion:reduce){.artifact-marker.artifact-invitation{transition:none}}
+
+.tutorial-replay{white-space:nowrap}
+@media(min-width:761px) and (max-width:1100px) and (min-height:501px){.tutorial-replay>span:last-child{display:none}.tutorial-replay{min-width:32px;justify-content:center}}

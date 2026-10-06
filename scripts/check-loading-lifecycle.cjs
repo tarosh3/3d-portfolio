@@ -70,7 +70,7 @@ function harness(filename, initialProps, options = {}) {
     window: { matchMedia: () => media }, sessionStorage: storage,
     require(name) {
       if (name === 'react') return react
-      if (name === './LoadingArtwork') return { default: () => null }
+      if (name === './LoadingArtwork' || name === './BrandLogo') return { default: () => null }
       if (name === 'react/jsx-runtime') return { jsx, jsxs: jsx, Fragment: 'fragment' }
       if (name === '@react-three/fiber') return { useThree: () => options.scene, useFrame: callback => { sceneFrame = callback } }
       return name.startsWith('./') ? sourceModule(name.slice(2)) : require(name)

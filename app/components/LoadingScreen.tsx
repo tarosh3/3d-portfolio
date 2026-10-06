@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react'
 import LoadingArtwork from './LoadingArtwork'
+import BrandLogo from './BrandLogo'
 import { loadingPhase, loadingTarget, LOADER_EXIT_MS, LOADER_SETTLE_MS, type IslandLoadProgress } from './loading-progress'
 
 interface LoadingScreenProps {
@@ -71,7 +72,7 @@ export default function LoadingScreen({ progress, ready, failed, onReveal, onCom
     if (leaving && event.target === event.currentTarget && event.propertyName === 'opacity') complete()
   }}>
     <header className="arrival-masthead">
-      <div className="arrival-signature"><svg viewBox="0 0 32 32" fill="none" aria-hidden="true"><path d="M16 2v28M2 16h28M6 6l20 20M6 26 26 6" stroke="currentColor" strokeWidth="1.3" /></svg><span>Tarosh Mathuria<span>A PERSONAL ISLAND</span></span></div>
+      <div className="arrival-signature"><BrandLogo priority /></div>
       <span className="arrival-edition">WORK · STORIES · CURIOSITY</span>
     </header>
     <div className="arrival-layout">

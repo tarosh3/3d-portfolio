@@ -1,10 +1,14 @@
 import * as THREE from 'three'
 import { bakeWaterDepth, WATER_LEVEL, DEPTH_MIN, DEPTH_RANGE, SHORE_RANGE } from './water-depth'
+import type { IslandWeather } from './island-weather'
+import { attachMaterialEffect } from './island-material-effects'
 
 const WATER_COLOURS = [
-  ['uShallow', '#62c9ba', '#386f76'], ['uDeep', '#145d64', '#122f3d'],
-  ['uFoam', '#e2edda', '#8cb6ba'], ['uSky', '#afd4d0', '#526879'],
-].map(([name, day, dusk]) => ({ name, day: new THREE.Color(day), dusk: new THREE.Color(dusk) }))
+  ['uShallow', '#62c9ba', '#386f76', '#568886', '#34535e'],
+  ['uDeep', '#145d64', '#122f3d', '#294d58', '#1b303f'],
+  ['uFoam', '#e2edda', '#8cb6ba', '#b2c6c6', '#8199a5'],
+  ['uSky', '#afd4d0', '#526879', '#849ba7', '#4c5c70'],
+].map(([name, day, dusk, storm, stormDusk]) => ({ name, day: new THREE.Color(day), dusk: new THREE.Color(dusk), storm: new THREE.Color(storm), stormDusk: new THREE.Color(stormDusk) }))
 
 const CAUSTICS = /* glsl */`
 float sandCaustic(vec2 p, float t) {
@@ -34,11 +38,46 @@ uniform sampler2D uDepth;
 uniform vec4 uDepthBounds;
 uniform float uTime;
 uniform float uDusk;
+uniform float uDrift;
+uniform float uWind;
+uniform float uGust;
+uniform float uRain;
+uniform float uSun;
+uniform float uLightning;
+uniform vec2 uWindDirection;
 uniform vec3 uShallow;
 uniform vec3 uDeep;
 uniform vec3 uFoam;
 uniform vec3 uSky;
 varying vec3 vWaterWorld;
+
+float oceanHash(vec2 p) {
+  p = fract(p * vec2(123.34, 345.45));
+  p += dot(p, p + 34.345);
+  return fract(p.x * p.y);
+}
+float oceanBreakup(vec2 p) {
+  vec2 cell = floor(p);
+  vec2 f = fract(p);
+  f = f * f * (3.0 - 2.0 * f);
+  return mix(mix(oceanHash(cell), oceanHash(cell + vec2(1.0, 0.0)), f.x),
+             mix(oceanHash(cell + vec2(0.0, 1.0)), oceanHash(cell + vec2(1.0, 1.0)), f.x), f.y);
+}
+
+// One expanding impact per world-space cell. A changing hashed offset keeps
+// successive drops distinct; the edge envelope hides their birth/reset.
+float rainRing(vec2 p, float t) {
+  vec2 cell = floor(p);
+  float seed = fract(sin(dot(cell, vec2(127.1, 311.7))) * 43758.5453);
+  float age = fract(t * 1.16 + seed);
+  float turn = floor(t * 1.16 + seed);
+  vec2 centre = .33 + .34 * fract(vec2(seed * 17.31, seed * 41.73) + turn * vec2(.618, .381));
+  float radius = length(fract(p) - centre);
+  float lineWidth = max(.014, fwidth(radius) * .75);
+  float ring = (1.0 - smoothstep(lineWidth, lineWidth + .025, abs(radius - age * .3))) * (.014 / lineWidth);
+  return ring * sin(age * 3.14159) * (1.0 - age) * step(seed, uRain * .88);
+}
+
 void main() {
   vec2 p = vWaterWorld.xz;
   vec2 uv = (p - uDepthBounds.xy) / uDepthBounds.zw;
@@ -50,12 +89,18 @@ void main() {
 
   // Analytic gradients give moving normals without displacing geometry, extra
   // normal textures, reflections, or camera-dependent depth render targets.
-  float warp = sin(dot(p, vec2(.24, .17)) + uTime * .18) * .85;
-  float a = dot(p, vec2(1.7, .8)) + uTime * .72 + warp;
-  float b = dot(p, vec2(-1.1, 2.3)) - uTime * .56 - warp * .65;
-  vec2 slope = cos(a) * vec2(1.7, .8) * .032 + cos(b) * vec2(-1.1, 2.3) * .018;
+  vec2 along = uWindDirection;
+  vec2 across = vec2(-along.y, along.x);
+  vec2 first = along * 1.85 + across * .2;
+  vec2 second = along * .6 - across * 2.3;
+  float warp = sin(dot(p, along * .29) - uDrift * .18) * .85;
+  float a = dot(p, first) - uDrift * .72 + warp;
+  float b = dot(p, second) - uDrift * .56 - warp * .65;
+  float windEnergy = .72 + uWind * 1.7 + uGust * .45;
+  vec2 slope = (cos(a) * first * .032 + cos(b) * second * .018) * windEnergy;
   #ifndef MOBILE_WATER
-    slope += cos(dot(p, vec2(4.1, -2.8)) + uTime * .83) * vec2(4.1, -2.8) * .006;
+    vec2 third = along * 4.1 + across * 2.8;
+    slope += cos(dot(p, third) - uDrift * .83) * third * .006 * windEnergy;
   #endif
   float footprint = max(length(dFdx(p)), length(dFdy(p)));
   float detail = 1.0 - smoothstep(.25, 1.2, footprint);
@@ -66,16 +111,38 @@ void main() {
   vec3 colour = mix(uShallow, uDeep, deepMix);
   colour *= 1.0 + (sin(a) * .009 + sin(b) * .006) * detail;
   colour = mix(colour, uSky, fresnel * .28);
-  vec3 halfLight = normalize(viewDirection + normalize(vec3(.35, .85, .38)));
+  vec3 halfLight = normalize(viewDirection + normalize(vec3(8.0, 22.0, 15.0)));
   float glint = pow(max(dot(normal, halfLight), 0.0), 100.0) * detail;
-  colour += vec3(1.0, .94, .75) * glint * mix(.055, .018, uDusk);
+  colour += vec3(1.0, .94, .75) * glint * mix(.055, .018, uDusk) * uSun;
 
   // A broken, soft wash tied to the signed distance from actual exposed land.
-  float surge = .08 * sin(uTime * .68 + p.x * .7 + p.y * .4);
-  float wash = exp(-pow((shore - .16 - surge) / .29, 2.0));
+  float surge = (.065 + uWind * .11) * sin(uDrift * .68 + dot(p, along) * .8);
+  float wash = exp(-pow((shore - .16 - surge) / (.27 + uWind * .12), 2.0));
   float lace = .64 + .18 * sin(p.x * 7.0 + sin(p.y * 4.0) + uTime * .45) + .12 * sin(p.y * 9.0 - uTime * .6);
   float foam = wash * lace * smoothstep(-.1, .08, shore) * detail;
+  // Isolated pieces of a narrow crest, broken by nonperiodic world-space
+  // noise. Intersecting the two wave trains produced a visible oval lattice.
+  float breakup = oceanBreakup(vec2(dot(p, along) * .3 - uDrift * .06, dot(p, across) * .57));
+  float crest = pow(max(0.0, sin(a + breakup * 2.6)), 48.0);
+  float whitecaps = crest * smoothstep(.5, .79, breakup) * smoothstep(.56, .95, uWind + uGust * .18);
+  float crestDetail = 1.0 - smoothstep(.05, .2, footprint);
+  foam += whitecaps * smoothstep(.3, 1.2, depth) * .085 * crestDetail;
   colour = mix(colour, uFoam, foam * .56);
+  float impacts = 0.0;
+  // The branch is uniform across the ocean, so clear weather skips all drop
+  // work. A phone uses one impact field alongside its two normal layers.
+  if (uRain > .001) {
+    impacts = rainRing(p * 2.2, uTime);
+    #ifndef MOBILE_WATER
+      impacts += rainRing(p * 2.7 + vec2(21.37, 43.91), uTime * .93) * .45;
+    #endif
+  }
+  // Individual drops belong to close shoreline views. Resolve them out before
+  // their subpixel rings merge into dots in the island overview.
+  float impactDetail = 1.0 - smoothstep(.018, .055, footprint);
+  impacts *= uRain * impactDetail * smoothstep(.025, .12, depth);
+  colour = mix(colour, uFoam, impacts * .1);
+  colour += vec3(.33, .39, .46) * uLightning * (.04 + fresnel * .11);
   float opacity = mix(.25, .995, 1.0 - exp(-depth * .72));
   // Account for the camera's oblique view of the bottom: fading only at the
   // surface's XZ position exposes the far edge of the finite seabed.
@@ -95,26 +162,47 @@ export function createIslandWater(model: THREE.Object3D) {
   const depth = bakeWaterDepth(model)
   const time = { value: 0 }
   const dusk = { value: 0 }
+  const sun = { value: 1 }
+  const stormColour = new THREE.Color()
   const material = new THREE.ShaderMaterial({
     name: 'Island water', vertexShader: VERTEX, fragmentShader: FRAGMENT,
     transparent: true, depthWrite: false, fog: true,
     uniforms: {
       ...THREE.UniformsUtils.clone(THREE.UniformsLib.fog),
       uDepth: { value: depth.texture }, uDepthBounds: { value: depth.bounds }, uTime: time, uDusk: dusk,
+      uDrift: { value: 0 }, uWind: { value: .2 }, uGust: { value: 0 }, uRain: { value: 0 }, uSun: sun,
+      uLightning: { value: 0 }, uWindDirection: { value: new THREE.Vector2(.8, .6) },
       uShallow: { value: new THREE.Color() }, uDeep: { value: new THREE.Color() },
       uFoam: { value: new THREE.Color() }, uSky: { value: new THREE.Color() },
     },
   })
-  const setPalette = (evening: boolean | number) => {
+  const setPalette = (evening: boolean | number, weather?: IslandWeather) => {
     const blend = THREE.MathUtils.clamp(Number(evening), 0, 1)
     dusk.value = blend
-    for (const colour of WATER_COLOURS) material.uniforms[colour.name].value.lerpColors(colour.day, colour.dusk, blend)
+    for (const colour of WATER_COLOURS) {
+      stormColour.lerpColors(colour.storm, colour.stormDusk, blend)
+      material.uniforms[colour.name].value.lerpColors(colour.day, colour.dusk, blend).lerp(stormColour, weather?.cloud ?? 0)
+    }
   }
   setPalette(false)
   return {
-    material, time, dusk, setPalette,
-    update(delta: number, reduced: boolean, paused: boolean) {
-      if (!reduced && !paused && Number.isFinite(delta) && delta > 0) time.value += Math.min(delta, .05)
+    material, time, dusk, sun, setPalette,
+    update(delta: number, reduced: boolean, paused: boolean, weather?: IslandWeather) {
+      if (weather) {
+        // The shared driver owns progression; every consumer sees exactly the
+        // same gust and active clock after readers, Still, and tab suspension.
+        time.value = weather.time
+        material.uniforms.uDrift.value = weather.drift
+        material.uniforms.uWind.value = weather.wind
+        material.uniforms.uGust.value = weather.gust
+        material.uniforms.uRain.value = weather.rain
+        material.uniforms.uLightning.value = weather.lightning
+        material.uniforms.uWindDirection.value.set(weather.windX, weather.windZ)
+        sun.value = weather.sun
+      } else if (!reduced && !paused && Number.isFinite(delta) && delta > 0) {
+        time.value += Math.min(delta, .05)
+        material.uniforms.uDrift.value = time.value
+      }
     },
     dispose() { material.dispose(); depth.texture.dispose() },
   }
@@ -132,25 +220,21 @@ export function attachSandCaustics(model: THREE.Object3D, water: ReturnType<type
   })
   const restore: (() => void)[] = []
   materials.forEach(material => {
-    const compile = material.onBeforeCompile, key = material.customProgramCacheKey
-    material.onBeforeCompile = (shader, renderer) => {
-      compile.call(material, shader, renderer)
+    restore.push(attachMaterialEffect(material, 'island-caustics-v2', shader => {
       shader.uniforms.uWaterTime = water.time
       shader.uniforms.uWaterDusk = water.dusk
+      shader.uniforms.uWaterSun = water.sun
       shader.vertexShader = 'varying vec3 vSandWorld;\n' + shader.vertexShader
       shader.vertexShader = shader.vertexShader.replace('#include <begin_vertex>', '#include <begin_vertex>\nvSandWorld = (modelMatrix * vec4(transformed, 1.0)).xyz;')
-      shader.fragmentShader = `varying vec3 vSandWorld;\nuniform float uWaterTime;\nuniform float uWaterDusk;\n${CAUSTICS}\n` + shader.fragmentShader
+      shader.fragmentShader = `varying vec3 vSandWorld;\nuniform float uWaterTime;\nuniform float uWaterDusk;\nuniform float uWaterSun;\n${CAUSTICS}\n` + shader.fragmentShader
       shader.fragmentShader = shader.fragmentShader.replace('#include <color_fragment>', `#include <color_fragment>
         float waterDepth = ${WATER_LEVEL} - vSandWorld.y;
         float shallows = smoothstep(.02, .18, waterDepth) * (1.0 - smoothstep(.8, 2.0, waterDepth));
         float pattern = sandCaustic(vSandWorld.xz, uWaterTime);
         pattern *= 1.0 - smoothstep(.12, .5, max(length(dFdx(vSandWorld.xz)), length(dFdy(vSandWorld.xz))));
-        diffuseColor.rgb *= 1.0 + pattern * shallows * mix(.22, .045, uWaterDusk);
+        diffuseColor.rgb *= 1.0 + pattern * shallows * mix(.22, .045, uWaterDusk) * uWaterSun * uWaterSun;
       `)
-    }
-    material.customProgramCacheKey = () => `${key.call(material)}-island-caustics-v1`
-    material.needsUpdate = true
-    restore.push(() => { material.onBeforeCompile = compile; material.customProgramCacheKey = key; material.needsUpdate = true })
+    }))
   })
   return () => restore.forEach(reset => reset())
 }

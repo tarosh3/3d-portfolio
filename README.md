@@ -36,7 +36,9 @@ The ocean and lagoon share a custom water shader at the model's shallow-water le
 
 The depth lookup settles to exactly the open-ocean depth before its perimeter, preventing a square patch from appearing around the island. Weather changes the sea colour, wind-driven ripples, sun highlights, rain rings and restrained whitecaps; the same active clock drives water and sand caustics. Damp sand, rocks, buildings and pier boards darken and become slightly smoother, while the roof-height map protects interiors and the source model materials remain untouched.
 
-A persistent gradient sky dome blends soft cloud banks into a broad overcast ceiling and a matching fog horizon. The cloud projection follows the visible horizon at the camera's height, keeping soft detail in the narrow sky band above the ocean. Its two cloud layers sample one cached 256×256 noise texture, without volumetric raymarching or extra sky passes. The cloud field also masks 170 dusk stars and a small crescent moon. A shared day-cycle value and weather state keep sky, fog, lighting, water and wind coordinated; reversing a setting continues from the current state. Readers and hidden tabs pause active clocks; Still and reduced motion settle the palette immediately and freeze cloud movement. The temporary arrival layer retains its separate cloud texture.
+A persistent gradient sky dome blends soft cloud banks into a broad overcast ceiling and a matching fog horizon. The cloud projection follows the visible horizon at the camera's height. At night, indigo gradients frame two slowly folding teal/violet aurora curtains, a faint galactic band, and 1,800 stars with varied magnitudes, colours and gentle scintillation. Phones draw 900 stars and one aurora curtain. The moon has an owned 256px procedural maria/crater map, a shaded terminator, faint earthshine and an atmospheric halo. The existing cloud field obscures every celestial effect; dense weather hides the aurora entirely. Aurora sampling reuses the cached cloud-noise texture, with no volumetric raymarching or extra sky passes. The home gaze leaves more sky above the island, and overview tilt-shift fades out at night to retain fine celestial detail. Moonlight catches the existing water normals without a reflection pass.
+
+A shared day-cycle value and weather state keep sky, fog, lighting, water and wind coordinated; reversing a setting continues from the current state. Readers and hidden tabs pause active clocks; Still and reduced motion settle the palette immediately and freeze clouds, aurora and star twinkle. The temporary arrival layer retains its separate cloud texture.
 
 Rain uses two instanced draws with deterministic GPU particle motion and a shared 512×512 surface/shelter map baked from the island. Desktop allows up to 12,000 streaks and 340 splashes; phones use 4,600 and 100. Sustained slow phone frames reduce that to 2,200 streaks with no surface splashes for the remainder of the visit. Clear weather skips rain draws after shader preparation, and Still omits them. The rain shaders and shelter texture warm up beneath the loader even when the island starts sunlit.
 
@@ -68,7 +70,7 @@ The beach is a quieter exploration stop. The lagoon and west shore finish the po
 | `app/components/IslandPostprocessing.tsx` | Desktop-only AO, selected dusk bloom, overview blur, and tone mapping |
 | `app/components/IslandWater.tsx`, `island-water.ts`, `water-depth.ts` | Shared ocean shader, sand caustics, baked seabed depth and shoreline distance |
 | `app/components/IslandDayCycle.tsx`, `day-cycle.ts` | Shared two-second atmosphere blend, reversal, pause/resume and instant reduced-motion switching |
-| `app/components/IslandSky.tsx`, `island-sky.ts`, `sky-atmosphere.ts` | Soft cloud field, continuous sky/fog horizon, stars and crescent moon |
+| `app/components/IslandSky.tsx`, `island-sky.ts`, `sky-atmosphere.ts`, `night-sky.ts` | Clouds, matching fog horizon, aurora, varied stars and textured moon |
 | `app/components/IslandWeatherDriver.tsx`, `island-weather.ts`, `WeatherControl.tsx` | Shared weather transitions, active clock, wind/lightning, phone budget and selector |
 | `app/components/IslandRain.tsx`, `island-rain.ts`, `rain-surface.ts` | GPU rain and splashes, baked roof shelter, quality tiers and resource ownership |
 | `app/components/island-wetness.ts`, `island-material-effects.ts` | Exposed-surface wetness and composable owned-material shader effects |
@@ -113,12 +115,14 @@ node scripts/check-artifact-beacons.cjs
 node scripts/check-island-rendering.cjs
 node scripts/check-island-water.cjs
 node scripts/check-island-sky.cjs
+node scripts/check-night-sky.cjs
 node scripts/check-cloud-geometry.cjs
 node scripts/check-day-cycle.cjs
 node scripts/check-island-weather.cjs
 node scripts/check-weather-sky.cjs
 node scripts/check-island-rain.cjs
 node scripts/check-weather-ocean.cjs
+node scripts/check-weather-audio.cjs
 node scripts/check-magazine-camera.cjs
 node scripts/check-artifact-cameras.cjs
 node scripts/check-island-navigation.cjs

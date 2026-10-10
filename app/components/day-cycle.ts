@@ -1,7 +1,7 @@
 import * as THREE from 'three'
 
 export const DAY_HORIZON = new THREE.Color('#a6c2c1')
-export const DUSK_HORIZON = new THREE.Color('#465767')
+export const DUSK_HORIZON = new THREE.Color('#1c3048')
 export const DAY_CYCLE_SECONDS = 2
 
 /** A single active-time transition shared by every atmosphere consumer. */

@@ -392,7 +392,7 @@ export default function IslandScene({ visible, sceneRevealed = visible, suspende
         <Canvas shadows={shadowsEnabled ? SOFT_SHADOWS : false} events={islandEvents} dpr={mobile ? 1 : [1, 1.5]} frameloop={paused || !gpuPrepared ? 'never' : !visible || reduced ? 'demand' : 'always'} camera={{ fov: 45, near: .1, far: 260, position: [25, 17, 23] }} gl={{ antialias: true, alpha: false, powerPreference: 'high-performance', toneMapping: THREE.ACESFilmicToneMapping, toneMappingExposure: 1, outputColorSpace: THREE.SRGBColorSpace }} fallback={<RendererFallback />}>
           <IslandWeatherDriver weather={weather} kind={weatherKind} reduced={reduced} paused={!visible || paused || Boolean(focus)} mobile={mobile} budgetActive={visible && renderReady && arrival === 'done' && !moving && !focus} onSlow={lowerWeatherQuality} />
           <IslandDayCycle weather={weather} cycle={cycle} dusk={dusk} reduced={reduced} paused={paused || Boolean(focus)} />
-          <IslandSky weather={weather} cycle={cycle} reduced={reduced} paused={paused || Boolean(focus)} />
+          <IslandSky weather={weather} cycle={cycle} reduced={reduced} paused={paused || Boolean(focus)} mobile={mobile} />
           <IslandLighting weather={weather} model={model} mobile={mobile} cycle={cycle} shadows={shadowsEnabled} />
           {model && <IslandWater weather={weather} model={model} cycle={cycle} reduced={reduced} paused={paused || Boolean(focus)} mobile={mobile} />}
           {arrival !== 'done' && <ArrivalClouds />}

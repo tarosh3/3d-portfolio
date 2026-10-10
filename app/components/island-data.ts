@@ -7,7 +7,7 @@ export type IslandArea = {
   map: [number, number]; read?: ReadRequest; readLabel?: string; compactDescription?: string
 }
 export const AREAS: IslandArea[] = [
-  { id: 'overview', label: 'Whole island', chapter: 'Welcome ashore', description: 'A small island. A world of things to build.', hint: 'Choose a place, or just look around.', position: [25, 17, 23], target: [1, 2.6, 0], range: [24, 65], arc: Math.PI, map: [46, 49] },
+  { id: 'overview', label: 'Whole island', chapter: 'Welcome ashore', description: 'A small island. A world of things to build.', hint: 'Choose a place, or just look around.', position: [25, 17, 23], target: [1, 5.7, 0], range: [24, 65], arc: Math.PI, map: [46, 49] },
   { id: 'veranda', label: 'The veranda', chapter: '01 / A little about me', description: 'An introduction, left open on the coffee table.', hint: 'Open the magazine. Stay for a look around.', position: [-1.7, 4.4, 1.8], target: [-1, 3.25, -.1], range: [2, 5], arc: .42, map: [44, 47], read: { stage: 1 } },
   { id: 'cabin', label: 'Project cabin', chapter: '02 / Selected work', description: 'Two ideas that made it out into the world.', hint: 'Find the project posters on the wooden wall.', position: [-7.1, 4.9, 8.7], target: [-3.9, 3.4, 4.8], range: [4.8, 14], arc: .45, map: [31, 64], read: { stage: 3 } },
   { id: 'deck', label: 'The rear deck', chapter: '03 / Under the hood', description: 'A quiet spot for systems, sketches and engineering notes.', hint: 'There’s a notebook beside the loungers.', position: [1.25, 4.6, -7.5], target: [-1.8, 3.15, -6.6], range: [3.2, 8], arc: .45, map: [36, 25], read: { stage: 2 } },

@@ -11,7 +11,7 @@ const LIGHT_COLOURS = {
   ambient: [new THREE.Color('#fffdf4'), new THREE.Color('#b9c9e2')],
   sky: [new THREE.Color('#c5edf2'), new THREE.Color('#647da3')],
   ground: [new THREE.Color('#b28a67'), new THREE.Color('#574b60')],
-  sun: [new THREE.Color('#fff0d2'), new THREE.Color('#e8bfa5')],
+  sun: [new THREE.Color('#fff0d2'), new THREE.Color('#bdcff0')],
 }
 const WEATHER_LIGHT = {
   ambient: new THREE.Color('#bacbda'), sky: new THREE.Color('#a9c0d0'),

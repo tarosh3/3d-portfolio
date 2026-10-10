@@ -2,6 +2,7 @@ import * as THREE from 'three'
 import { bakeWaterDepth, WATER_LEVEL, DEPTH_MIN, DEPTH_RANGE, SHORE_RANGE } from './water-depth'
 import type { IslandWeather } from './island-weather'
 import { attachMaterialEffect } from './island-material-effects'
+import { MOON_DIRECTION } from './night-sky'
 
 const WATER_COLOURS = [
   ['uShallow', '#62c9ba', '#386f76', '#568886', '#34535e'],
@@ -44,6 +45,8 @@ uniform float uGust;
 uniform float uRain;
 uniform float uSun;
 uniform float uLightning;
+uniform float uNightLight;
+uniform vec3 uMoonDirection;
 uniform vec2 uWindDirection;
 uniform vec3 uShallow;
 uniform vec3 uDeep;
@@ -114,6 +117,10 @@ void main() {
   vec3 halfLight = normalize(viewDirection + normalize(vec3(8.0, 22.0, 15.0)));
   float glint = pow(max(dot(normal, halfLight), 0.0), 100.0) * detail;
   colour += vec3(1.0, .94, .75) * glint * mix(.055, .018, uDusk) * uSun;
+  // Moonlight breaks into the existing moving normals; no reflection pass.
+  vec3 moonHalf = normalize(viewDirection + uMoonDirection);
+  float moonGlint = pow(max(dot(normal, moonHalf), 0.0), 180.0);
+  colour += vec3(.07, .10, .14) * moonGlint * uNightLight * smoothstep(.2, 1.4, depth);
 
   // A broken, soft wash tied to the signed distance from actual exposed land.
   float surge = (.065 + uWind * .11) * sin(uDrift * .68 + dot(p, along) * .8);
@@ -172,6 +179,7 @@ export function createIslandWater(model: THREE.Object3D) {
       uDepth: { value: depth.texture }, uDepthBounds: { value: depth.bounds }, uTime: time, uDusk: dusk,
       uDrift: { value: 0 }, uWind: { value: .2 }, uGust: { value: 0 }, uRain: { value: 0 }, uSun: sun,
       uLightning: { value: 0 }, uWindDirection: { value: new THREE.Vector2(.8, .6) },
+      uNightLight: { value: 0 }, uMoonDirection: { value: MOON_DIRECTION.clone() },
       uShallow: { value: new THREE.Color() }, uDeep: { value: new THREE.Color() },
       uFoam: { value: new THREE.Color() }, uSky: { value: new THREE.Color() },
     },
@@ -179,6 +187,7 @@ export function createIslandWater(model: THREE.Object3D) {
   const setPalette = (evening: boolean | number, weather?: IslandWeather) => {
     const blend = THREE.MathUtils.clamp(Number(evening), 0, 1)
     dusk.value = blend
+    material.uniforms.uNightLight.value = THREE.MathUtils.smoothstep(blend, .25, 1) * (1 - THREE.MathUtils.smoothstep(weather?.cloud ?? 0, .3, .94))
     for (const colour of WATER_COLOURS) {
       stormColour.lerpColors(colour.storm, colour.stormDusk, blend)
       material.uniforms[colour.name].value.lerpColors(colour.day, colour.dusk, blend).lerp(stormColour, weather?.cloud ?? 0)

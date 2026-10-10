@@ -101,7 +101,9 @@ export default function IslandPostprocessing({ enabled, preparing, overview, cyc
       invalidate()
       return
     }
-    const target = overview ? 1 : 0
+    // Fine stars and the moon must stay sharp; fade the miniature lens out as
+    // evening arrives, using the same blend as the atmosphere.
+    const target = overview ? 1 - cycle.value : 0
     blurAmount.current = reduced ? target : THREE.MathUtils.damp(blurAmount.current, target, 7, Math.min(delta, .05))
     if (Math.abs(blurAmount.current - target) < .001) blurAmount.current = target
     pipeline.tiltX.blendMode.opacity.value = blurAmount.current

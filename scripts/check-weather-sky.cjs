@@ -51,7 +51,7 @@ assert.equal(uniforms.uDrift.value, drift, 'reader pause and Still freeze cloud 
 assert.equal(uniforms.uNoise.value, texture, 'weather updates reuse the texture')
 assert.equal(sky.material.uniforms, uniforms, 'weather updates reuse uniforms')
 let disposed = 0
-for (const resource of [texture, sky.material, sky.stars, sky.starMaterial, sky.moonMaterial]) resource.addEventListener('dispose', () => disposed++)
+for (const resource of [texture, sky.moonMaterial.uniforms.uMoonMap.value, sky.material, sky.stars, sky.starMaterial, sky.moonMaterial]) resource.addEventListener('dispose', () => disposed++)
 sky.dispose()
-assert.equal(disposed, 5, 'all sky-owned GPU resources are released')
+assert.equal(disposed, 6, 'all sky-owned GPU resources are released')
 console.log('Weather sky passed: continuous fog palette, darkening, celestial obscuration, restrained lightning, shared wind/pause, cached noise and cleanup.')
